@@ -1,0 +1,183 @@
+#
+# Copyright 2025 the original author or authors.
+# <p>
+# Licensed under the Moderne Source Available License (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# <p>
+# https://docs.moderne.io/licensing/moderne-source-available-license
+# <p>
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.awspring.MigrateSpringCloudAwsToAwSpring
+displayName: Migrate from Spring Cloud AWS to AWS Spring
+description: Migrate legacy Spring Cloud AWS to AWS Spring project.
+tags:
+  - spring
+  - cloud
+recipeList:
+  - org.openrewrite.java.awspring.MigrateSpringCloudAWSBom
+  - org.openrewrite.java.awspring.MigrateAWSSpringDependencies
+  - org.openrewrite.maven.RemoveManagedDependency:
+      groupId: org.springframework.cloud
+      artifactId: spring-cloud-aws-dependencies
+  - org.openrewrite.gradle.RemoveDependency:
+      groupId: org.springframework.cloud
+      artifactId: spring-cloud-aws-dependencies
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.awspring.MigrateAWSSpringDependencies
+displayName: Migrate from Spring Cloud to AWS Spring Dependencies
+description: Migrate legacy Spring Cloud AWS dependency declarations to equivalent AWS Spring dependencies.
+tags:
+  - spring
+  - cloud
+recipeList:
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-aws
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-starter-aws
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-aws-jdbc
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-starter-aws-jdbc
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-aws-messaging
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-starter-aws-messaging
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-aws-parameter-store-config
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-starter-aws-parameter-store-config
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-aws-secrets-manager-config
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-starter-aws-secrets-manager-config
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-aws-ses
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-starter-aws-ses
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-context
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-context
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-messaging
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-messaging
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-jdbc
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-jdbc
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-core
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-core
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-autoconfigure
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-autoconfigure
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-parameter-store-config
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-parameter-store-config
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-secrets-manager-config
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-secrets-manager-config
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-ses
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-ses
+      newVersion: 2.4.4
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-aws-test
+      newGroupId: io.awspring.cloud
+      newArtifactId: spring-cloud-aws-test
+      newVersion: 2.4.4
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.awspring.MigrateSpringCloudAWSBom
+displayName: Migrate from Spring Cloud to AWS Spring BOM
+description: Migrate legacy Spring Cloud AWS to AWS Spring project.
+tags:
+  - spring
+  - cloud
+recipeList:
+  - org.openrewrite.java.awspring.MigrateSpringCloudAWSMaven
+  - org.openrewrite.java.awspring.MigrateSpringCloudAWSGradle
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.awspring.MigrateSpringCloudAWSMaven
+displayName: Migrate from Spring Cloud AWS to AWSpring 2.4.x
+description: Migrate legacy Spring Cloud AWS to AWS Spring Project.
+tags:
+  - spring
+  - cloud
+preconditions:
+  - org.openrewrite.maven.search.FindManagedDependency:
+      groupId: org.springframework.cloud
+      artifactId: spring-cloud-dependencies
+recipeList:
+  - org.openrewrite.maven.AddManagedDependency:
+      groupId: io.awspring.cloud
+      artifactId: spring-cloud-aws-dependencies
+      version: 2.4.4
+      type: pom
+      scope: import
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.awspring.MigrateSpringCloudAWSGradle
+displayName: Migrate from Spring Cloud AWS to AWSpring 2.4.x
+description: Migrate legacy Spring Cloud AWS to AWS Spring Project.
+tags:
+  - spring
+  - cloud
+preconditions:
+  - org.openrewrite.gradle.search.FindDependency:
+      groupId: org.springframework.cloud
+      artifactId: spring-cloud-dependencies
+recipeList:
+  - org.openrewrite.gradle.AddPlatformDependency:
+      groupId: io.awspring.cloud
+      artifactId: spring-cloud-aws-dependencies
+      version: 2.4.4
