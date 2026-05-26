@@ -16,6 +16,7 @@
 package org.openrewrite.java.spring;
 
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import org.openrewrite.*;
 import org.openrewrite.internal.NameCaseConvention;
 import org.openrewrite.properties.PropertiesIsoVisitor;
@@ -23,15 +24,11 @@ import org.openrewrite.properties.tree.Properties;
 
 @EqualsAndHashCode(callSuper = false)
 public class PropertiesToKebabCaseProperties extends Recipe {
-    @Override
-    public String getDisplayName() {
-        return "Normalize Spring `application*.properties` properties to kebab-case";
-    }
+    @Getter
+    final String displayName = "Normalize Spring `application*.properties` properties to kebab-case";
 
-    @Override
-    public String getDescription() {
-        return "Normalize Spring `application*.properties` properties to kebab-case.";
-    }
+    @Getter
+    final String description = "Normalize Spring `application*.properties` properties to kebab-case.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -40,6 +37,14 @@ public class PropertiesToKebabCaseProperties extends Recipe {
             public Properties.Entry visitEntry(Properties.Entry entry, ExecutionContext ctx) {
                 Properties.Entry e = super.visitEntry(entry, ctx);
                 String key = e.getKey();
+                if ((key.startsWith("spring.") && key.contains(".properties.")) ||
+                        key.startsWith("logging.level.") ||
+                        key.startsWith("management.metrics.tags.") ||
+                        key.startsWith("management.metrics.enable.") ||
+                        key.startsWith("management.metrics.distribution.") ||
+                        key.startsWith("spring.flyway.placeholders.")) {
+                    return e;
+                }
                 String asKebabCase = NameCaseConvention.LOWER_HYPHEN.format(key);
                 if (!key.equals(asKebabCase)) {
                     return e.withKey(asKebabCase);

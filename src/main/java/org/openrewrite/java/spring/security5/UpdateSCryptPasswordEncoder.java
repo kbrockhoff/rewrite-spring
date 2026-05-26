@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.openrewrite.java.spring.internal.LocalVariableUtils.resolveExpression;
+import static org.openrewrite.java.spring.security5.PasswordEncoderUtils.isInsideTargetClass;
 
 @EqualsAndHashCode(callSuper = false)
 @Value
@@ -56,16 +57,10 @@ public class UpdateSCryptPasswordEncoder extends Recipe {
     private static final Integer DEFAULT_V41_KEY_LENGTH = 32;
     private static final Integer DEFAULT_V41_SALT_LENGTH = 64;
 
-    @Override
-    public String getDisplayName() {
-        return "Use new `SCryptPasswordEncoder` factory methods";
-    }
+    String displayName = "Use new `SCryptPasswordEncoder` factory methods";
 
-    @Override
-    public String getDescription() {
-        return "In Spring Security 5.8 some `SCryptPasswordEncoder` constructors have been deprecated in favor of factory methods. " +
-                "Refer to the [ Spring Security migration docs](https://docs.spring.io/spring-security/reference/5.8/migration/index.html#_update_scryptpasswordencoder) for more information.";
-    }
+    String description = "In Spring Security 5.8 some `SCryptPasswordEncoder` constructors have been deprecated in favor of factory methods. " +
+            "Refer to the [ Spring Security migration docs](https://docs.spring.io/spring-security/reference/5.8/migration/index.html#_update_scryptpasswordencoder) for more information.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -74,7 +69,8 @@ public class UpdateSCryptPasswordEncoder extends Recipe {
             @Override
             public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J j = super.visitNewClass(newClass, ctx);
-                if (j instanceof J.NewClass && TypeUtils.isOfClassType(((J.NewClass) j).getType(), SCRYPT_PASSWORD_ENCODER_CLASS)) {
+                if (j instanceof J.NewClass && TypeUtils.isOfClassType(((J.NewClass) j).getType(), SCRYPT_PASSWORD_ENCODER_CLASS) &&
+                        !isInsideTargetClass(getCursor(), SCRYPT_PASSWORD_ENCODER_CLASS)) {
                     newClass = (J.NewClass) j;
                     if (DEFAULT_CONSTRUCTOR_MATCHER.matches(newClass)) {
                         maybeAddImport(SCRYPT_PASSWORD_ENCODER_CLASS);

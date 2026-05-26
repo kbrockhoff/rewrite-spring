@@ -27,16 +27,15 @@ import org.openrewrite.yaml.tree.Yaml;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
  * A recipe to uniformly add a property to Spring configuration file. This recipe supports adding properties to
  * ".properties" and YAML files. This recipe will only add the property if it does not already exist within the
  * configuration file.
- * <P>
+ * <p>
  * NOTE: Because an application may have a large collection of yaml files (some of which may not even be related to
- *       Spring configuration), this recipe will only make changes to files that match one of the pathExpressions. If
- *       the recipe is configured without pathExpressions, it will query the execution context for reasonable defaults.
+ * Spring configuration), this recipe will only make changes to files that match one of the pathExpressions. If
+ * the recipe is configured without pathExpressions, it will query the execution context for reasonable defaults.
  */
 @EqualsAndHashCode(callSuper = false)
 @Value
@@ -61,22 +60,16 @@ public class AddSpringProperty extends Recipe {
 
     @Option(displayName = "Optional list of file path matcher",
             description = "Each value in this list represents a glob expression that is used to match which files will " +
-                          "be modified. If this value is not present, this recipe will query the execution context for " +
-                          "reasonable defaults. (\"**/application.yml\", \"**/application.yml\", and \"**/application.properties\".",
+                    "be modified. If this value is not present, this recipe will query the execution context for " +
+                    "reasonable defaults. (\"**/application.yml\", \"**/application.yml\", and \"**/application.properties\".",
             required = false,
             example = "[\"**/application.yml\"]")
     @Nullable
     List<String> pathExpressions;
 
-    @Override
-    public String getDisplayName() {
-        return "Add a spring configuration property";
-    }
+    String displayName = "Add a spring configuration property";
 
-    @Override
-    public String getDescription() {
-        return "Add a spring configuration property to a configuration file if it does not already exist in that file.";
-    }
+    String description = "Add a spring configuration property to a configuration file if it does not already exist in that file.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -91,7 +84,7 @@ public class AddSpringProperty extends Recipe {
                 if (t instanceof Yaml.Documents && sourcePathMatches(((SourceFile) t).getSourcePath(), ctx)) {
                     t = createMergeYamlVisitor().getVisitor().visit(t, ctx);
                 } else if (t instanceof Properties.File && sourcePathMatches(((SourceFile) t).getSourcePath(), ctx)) {
-                    t = new AddProperty(property, value, comment, null, null).getVisitor().visit(t, ctx);
+                    t = new AddProperty(property, value, comment, null, null, null, null).getVisitor().visit(t, ctx);
                 }
                 return t;
             }
@@ -135,16 +128,7 @@ public class AddSpringProperty extends Recipe {
             yaml.append(indent).append(part).append(":");
             indent = indent + "  ";
         }
-        if (quoteValue(value)) {
-            yaml.append(" \"").append(value).append('"');
-        } else {
-            yaml.append(" ").append(value);
-        }
+        yaml.append(" ").append(org.openrewrite.yaml.internal.StringUtils.quoteIfNeeded(value));
         return new MergeYaml("$", yaml.toString(), true, null, null, null, null, null);
-    }
-
-    private static final Pattern scalarNeedsAQuote = Pattern.compile("[^a-zA-Z\\d\\s]*");
-    private boolean quoteValue(String value) {
-        return scalarNeedsAQuote.matcher(value).matches();
     }
 }

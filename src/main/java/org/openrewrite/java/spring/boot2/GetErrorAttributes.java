@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -31,15 +32,11 @@ import org.openrewrite.java.tree.J;
 public class GetErrorAttributes extends Recipe {
     private static final MethodMatcher MATCHER = new MethodMatcher("org.springframework.boot.web.servlet.error.ErrorAttributes getErrorAttributes(org.springframework.web.context.request.WebRequest, boolean)");
 
-    @Override
-    public String getDisplayName() {
-        return "Use `ErrorAttributes#getErrorAttributes(WebRequest, ErrorAttributeOptions)`";
-    }
+    @Getter
+    final String displayName = "Use `ErrorAttributes#getErrorAttributes(WebRequest, ErrorAttributeOptions)`";
 
-    @Override
-    public String getDescription() {
-        return "`ErrorAttributes#getErrorAttributes(WebRequest, boolean)` was deprecated in Spring Boot 2.3.";
-    }
+    @Getter
+    final String description = "`ErrorAttributes#getErrorAttributes(WebRequest, boolean)` was deprecated in Spring Boot 2.3.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -71,41 +68,41 @@ public class GetErrorAttributes extends Recipe {
                 if (isLiteralTrue(includeStackTraceArgument)) {
                     String template = "#{any(org.springframework.web.context.request.WebRequest)}, ErrorAttributeOptions.defaults().including(ErrorAttributeOptions.Include.STACK_TRACE)";
                     mi = JavaTemplate.builder(template)
-                        .contextSensitive()
-                        .imports(parserImports)
-                        .javaParser(JavaParser.fromJavaVersion()
-                                            .classpathFromResources(ctx, "spring-boot-2.*", "spring-boot-autoconfigure-2.*", "spring-web-5.*"))
-                        .build().apply(
-                            getCursor(),
-                            mi.getCoordinates().replaceArguments(),
-                            mi.getArguments().get(0)
-                    );
+                            .contextSensitive()
+                            .imports(parserImports)
+                            .javaParser(JavaParser.fromJavaVersion()
+                                    .classpathFromResources(ctx, "spring-boot-2.*", "spring-boot-autoconfigure-2.*", "spring-web-5.*"))
+                            .build().apply(
+                                    getCursor(),
+                                    mi.getCoordinates().replaceArguments(),
+                                    mi.getArguments().get(0)
+                            );
                 } else if (isLiteralFalse(includeStackTraceArgument)) {
                     String template = "#{any(org.springframework.web.context.request.WebRequest)}, ErrorAttributeOptions.defaults()";
                     mi = JavaTemplate.builder(template)
-                        .contextSensitive()
-                        .imports(parserImports)
-                        .javaParser(JavaParser.fromJavaVersion()
-                                            .classpathFromResources(ctx, "spring-boot-2.*", "spring-boot-autoconfigure-2.*", "spring-web-5.*"))
-                        .build()
-                        .apply(
-                            getCursor(),
-                            mi.getCoordinates().replaceArguments(),
-                            mi.getArguments().get(0)
-                    );
+                            .contextSensitive()
+                            .imports(parserImports)
+                            .javaParser(JavaParser.fromJavaVersion()
+                                    .classpathFromResources(ctx, "spring-boot-2.*", "spring-boot-autoconfigure-2.*", "spring-web-5.*"))
+                            .build()
+                            .apply(
+                                    getCursor(),
+                                    mi.getCoordinates().replaceArguments(),
+                                    mi.getArguments().get(0)
+                            );
                 } else if (!(mi.getArguments().get(1) instanceof J.Ternary)) {
                     String template = "#{any(org.springframework.web.context.request.WebRequest)}, #{any(boolean)} ? ErrorAttributeOptions.defaults().including(ErrorAttributeOptions.Include.STACK_TRACE) : ErrorAttributeOptions.defaults()";
                     mi = JavaTemplate.builder(template)
-                        .contextSensitive()
-                        .imports(parserImports)
-                        .javaParser(JavaParser.fromJavaVersion()
-                                            .classpathFromResources(ctx, "spring-boot-2.*", "spring-boot-autoconfigure-2.*", "spring-web-5.*"))
-                        .build()
-                        .apply(
-                            getCursor(),
-                            mi.getCoordinates().replaceArguments(),
-                            mi.getArguments().toArray()
-                    );
+                            .contextSensitive()
+                            .imports(parserImports)
+                            .javaParser(JavaParser.fromJavaVersion()
+                                    .classpathFromResources(ctx, "spring-boot-2.*", "spring-boot-autoconfigure-2.*", "spring-web-5.*"))
+                            .build()
+                            .apply(
+                                    getCursor(),
+                                    mi.getCoordinates().replaceArguments(),
+                                    mi.getArguments().toArray()
+                            );
                 }
                 maybeAddImport("org.springframework.boot.web.error.ErrorAttributeOptions");
             }

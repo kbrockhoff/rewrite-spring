@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.batch;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -24,23 +25,22 @@ import org.openrewrite.java.*;
 import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.tree.Expression;
 import org.openrewrite.java.tree.J;
+import org.openrewrite.java.tree.JavaType;
 import org.openrewrite.java.tree.Javadoc;
+import org.openrewrite.java.tree.TypeUtils;
 
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public class ConvertReceiveTypeWhenCallStepExecutionMethod extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Convert receive type in some invocation of StepExecution.xx()";
-    }
+    @Getter
+    final String displayName = "Convert receive type in some invocation of StepExecution.xx()";
 
-    @Override
-    public String getDescription() {
-        return "Convert receive type in some invocation of StepExecution.xx().";
-    }
+    @Getter
+    final String description = "Convert receive type in some invocation of StepExecution.xx().";
 
 
     private static final MethodMatcher CommitCount = new MethodMatcher("org.springframework.batch.core.StepExecution getCommitCount()");
@@ -95,7 +95,7 @@ public class ConvertReceiveTypeWhenCallStepExecutionMethod extends Recipe {
         public J visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
             J j = super.visitVariableDeclarations(multiVariable, ctx);
             VisitMethodInvocation visitMethodInvocation = new VisitMethodInvocation(selfMethodInvocation);
-            visitMethodInvocation.visitVariableDeclarations(multiVariable, ctx);
+            visitMethodInvocation.visit(multiVariable, ctx, getCursor().getParentTreeCursor());
             if (visitMethodInvocation.isFound) {
                 doAfterVisit(new AddCast());
             }
@@ -135,7 +135,7 @@ public class ConvertReceiveTypeWhenCallStepExecutionMethod extends Recipe {
                     return j;
                 }
                 VisitMethodInvocation visitMethodInvocation = new VisitMethodInvocation(selfMethodInvocation);
-                visitMethodInvocation.visitMethodInvocation(method, ctx);
+                visitMethodInvocation.visit(method, ctx, getCursor().getParentTreeCursor());
                 if (visitMethodInvocation.isFound) {
                     doAfterVisit(new AddCast());
                 }
@@ -149,7 +149,7 @@ public class ConvertReceiveTypeWhenCallStepExecutionMethod extends Recipe {
         public J visitReturn(J.Return return_, ExecutionContext ctx) {
             J j = super.visitReturn(return_, ctx);
             VisitMethodInvocation visitMethodInvocation = new VisitMethodInvocation(selfMethodInvocation);
-            visitMethodInvocation.visitReturn(return_, ctx);
+            visitMethodInvocation.visit(return_, ctx, getCursor().getParentTreeCursor());
             if (visitMethodInvocation.isFound) {
                 doAfterVisit(new AddCast());
             }
@@ -172,13 +172,54 @@ public class ConvertReceiveTypeWhenCallStepExecutionMethod extends Recipe {
                 J parent = getCursor().getParentTreeCursor().getValue();
                 if (selfMethodInvocation == method &&
                         !(parent instanceof J.TypeCast) &&
-                        !(parent instanceof Expression && WHEN_MATCHER.matches((Expression) parent))) {
+                        !(parent instanceof Expression && WHEN_MATCHER.matches((Expression) parent)) &&
+                        contextExpectsInt(getCursor())) {
                     return JavaTemplate.builder("(int) #{any(int)}")
                             .contextSensitive()
                             .build().apply(getCursor(), method.getCoordinates().replace(), method)
                             .withPrefix(method.getPrefix());
                 }
                 return super.visitMethodInvocation(method, ctx);
+            }
+
+            private boolean contextExpectsInt(org.openrewrite.Cursor cursor) {
+                J parent = cursor.getParentTreeCursor().getValue();
+
+                if (parent instanceof J.VariableDeclarations.NamedVariable) {
+                    JavaType.Variable varType = ((J.VariableDeclarations.NamedVariable) parent).getVariableType();
+                    return varType != null && TypeUtils.isOfType(varType.getType(), JavaType.Primitive.Int);
+                }
+
+                if (parent instanceof J.Return) {
+                    J.MethodDeclaration enclosingMethod = cursor.firstEnclosing(J.MethodDeclaration.class);
+                    if (enclosingMethod != null && enclosingMethod.getMethodType() != null) {
+                        return TypeUtils.isOfType(enclosingMethod.getMethodType().getReturnType(), JavaType.Primitive.Int);
+                    }
+                    return true;
+                }
+
+                if (parent instanceof J.MethodInvocation) {
+                    J.MethodInvocation parentMethod = (J.MethodInvocation) parent;
+                    if (parentMethod.getMethodType() != null) {
+                        List<Expression> args = parentMethod.getArguments();
+                        int argIndex = -1;
+                        for (int i = 0; i < args.size(); i++) {
+                            if (args.get(i) == selfMethodInvocation) {
+                                argIndex = i;
+                                break;
+                            }
+                        }
+                        if (argIndex >= 0) {
+                            List<JavaType> paramTypes = parentMethod.getMethodType().getParameterTypes();
+                            if (argIndex < paramTypes.size()) {
+                                return TypeUtils.isOfType(paramTypes.get(argIndex), JavaType.Primitive.Int);
+                            }
+                        }
+                    }
+                    return true;
+                }
+
+                return true;
             }
         }
 

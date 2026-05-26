@@ -16,6 +16,7 @@
 package org.openrewrite.java.spring.boot3;
 
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import org.openrewrite.*;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.MethodMatcher;
@@ -35,15 +36,11 @@ import static java.util.Collections.singletonList;
 import static org.openrewrite.Preconditions.and;
 
 public class MigrateHooksToReactorContextProperty extends ScanningRecipe<MigrateHooksToReactorContextProperty.ProjectsWithHooks> {
-    @Override
-    public String getDisplayName() {
-        return "Use `spring.reactor.context-propagation` property";
-    }
+    @Getter
+    final String displayName = "Use `spring.reactor.context-propagation` property";
 
-    @Override
-    public String getDescription() {
-        return "Replace `Hooks.enableAutomaticContextPropagation()` with `spring.reactor.context-propagation=true`.";
-    }
+    @Getter
+    final String description = "Replace `Hooks.enableAutomaticContextPropagation()` with `spring.reactor.context-propagation=auto`.";
 
     @Override
     public ProjectsWithHooks getInitialValue(ExecutionContext ctx) {
@@ -98,7 +95,7 @@ public class MigrateHooksToReactorContextProperty extends ScanningRecipe<Migrate
                     return new RemoveMethodInvocationsVisitor(singletonList(HOOKS_PATTERN)).visitNonNull(tree, ctx);
                 }
 
-                return new AddSpringProperty("spring.reactor.context-propagation", "true", null, null)
+                return new AddSpringProperty("spring.reactor.context-propagation", "auto", null, null)
                         .getVisitor()
                         .visitNonNull(tree, ctx);
             }

@@ -43,15 +43,9 @@ public class ExpandProperties extends Recipe {
     @Nullable
     private String sourceFileMask;
 
-    @Override
-    public String getDisplayName() {
-        return "Expand Spring YAML properties";
-    }
+    String displayName = "Expand Spring YAML properties";
 
-    @Override
-    public String getDescription() {
-        return "Expand YAML properties to not use the dot syntax shortcut.";
-    }
+    String description = "Expand YAML properties to not use the dot syntax shortcut.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -71,6 +65,7 @@ public class ExpandProperties extends Recipe {
             private Yaml.Documents removeEmptyFirstLine(Yaml.Documents docs, ExecutionContext ctx) {
                 return (Yaml.Documents) new YamlIsoVisitor<ExecutionContext>() {
                     boolean doneTrimming;
+
                     @Override
                     public Yaml.Scalar visitScalar(Yaml.Scalar scalar, ExecutionContext ctx) {
                         doneTrimming = true;
@@ -99,7 +94,7 @@ public class ExpandProperties extends Recipe {
 
                     private String trimNewlineBeforeComment(String prefix) {
                         int hashIndex = prefix.indexOf('#');
-                        if(hashIndex >= 0) {
+                        if (hashIndex >= 0) {
                             return prefix.substring(0, hashIndex).trim() + prefix.substring(hashIndex);
                         }
                         return prefix.trim();

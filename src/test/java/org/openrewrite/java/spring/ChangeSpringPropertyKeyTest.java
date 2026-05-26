@@ -21,12 +21,13 @@ import org.openrewrite.DocumentExample;
 import org.openrewrite.InMemoryExecutionContext;
 import org.openrewrite.Issue;
 import org.openrewrite.java.JavaParser;
-import org.openrewrite.test.RecipeSpec;
+import org.openrewrite.kotlin.KotlinParser;
 import org.openrewrite.test.RewriteTest;
 
 import java.util.List;
 
 import static org.openrewrite.java.Assertions.*;
+import static org.openrewrite.kotlin.Assertions.kotlin;
 import static org.openrewrite.properties.Assertions.properties;
 import static org.openrewrite.yaml.Assertions.yaml;
 
@@ -36,7 +37,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void changeLastKey() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("server.servlet-path", "server.servlet.path", null)),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               properties(
                 """
@@ -67,7 +68,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void changePropertyPath() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("session.cookie.path", "servlet.session.cookie.path", null)),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               //language=properties
               properties(
@@ -101,7 +102,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void subproperties() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("spring.resources", "spring.web.resources", null)),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               //language=properties
               properties(
@@ -146,7 +147,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void except() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("spring.profiles", "spring.config.activate.on-profile", List.of("active", "default", "group", "include"))),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               //language=properties
               properties(
@@ -171,10 +172,10 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     }
 
     @Test
-    void avoidRegenerativeChanges() {
+    void avoidRegenerativeChangesInYaml() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("logging.file", "logging.file.name", null)),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               properties(
                 """
@@ -229,7 +230,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void loggingFileSubproperties() {
         rewriteRun(
           spec -> spec.recipeFromResource("/META-INF/rewrite/spring-boot-22-properties.yml", "org.openrewrite.java.spring.boot2.SpringBootProperties_2_2"),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               properties("""
                 logging.file.max-size=10MB
@@ -246,13 +247,87 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
         );
     }
 
+    @Issue("https://github.com/openrewrite/rewrite-spring/issues/1027")
+    @Test
+    void redisSslBundleNotMangled() {
+        rewriteRun(
+          spec -> spec.recipeFromResource("/META-INF/rewrite/spring-boot-31-properties.yml", "org.openrewrite.java.spring.boot3.SpringBootProperties_3_1"),
+          mavenProject("project",
+            srcMainResources(
+              //language=properties
+              properties(
+                """
+                  spring.data.redis.ssl.bundle=redis
+                  spring.cassandra.ssl.bundle=cassandra
+                  """
+              ),
+              //language=yaml
+              yaml(
+                """
+                  spring:
+                    data:
+                      redis:
+                        ssl:
+                          bundle: redis
+                    cassandra:
+                      ssl:
+                        bundle: cassandra
+                  """
+              )
+            )
+          )
+        );
+    }
+
+    @Issue("https://github.com/openrewrite/rewrite-spring/issues/1027")
+    @Test
+    void redisSslBooleanStillRenamed() {
+        rewriteRun(
+          spec -> spec.recipeFromResource("/META-INF/rewrite/spring-boot-31-properties.yml", "org.openrewrite.java.spring.boot3.SpringBootProperties_3_1"),
+          mavenProject("project",
+            srcMainResources(
+              //language=properties
+              properties(
+                """
+                  spring.data.redis.ssl=true
+                  spring.cassandra.ssl=true
+                  """,
+                """
+                  spring.data.redis.ssl.enabled=true
+                  spring.cassandra.ssl.enabled=true
+                  """
+              ),
+              //language=yaml
+              yaml(
+                """
+                  spring:
+                    data:
+                      redis:
+                        ssl: true
+                    cassandra:
+                      ssl: true
+                  """,
+                """
+                  spring:
+                    data:
+                      redis:
+                        ssl.enabled: true
+                    cassandra:
+                      ssl.enabled: true
+                  """
+              )
+            )
+          )
+        );
+    }
+
     @Disabled
     @Issue("https://github.com/openrewrite/rewrite-spring/issues/436")
     @Test
     void loggingFileSubpropertiesYaml() {
         rewriteRun(
           spec -> spec.recipeFromResource("/META-INF/rewrite/spring-boot-22-properties.yml", "org.openrewrite.java.spring.boot2.SpringBootProperties_2_2"),
-          mavenProject("",
+          mavenProject("project",
             srcMainResources(
               yaml(
                 """
@@ -284,7 +359,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void changeValueAnnotation() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("server.servlet-path", "server.servlet.path", List.of("foo")))
-            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-beans-5.+")),
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-beans-5")),
           java(
             """
               import org.springframework.beans.factory.annotation.Value;
@@ -323,7 +398,7 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
     void changeConditionalOnPropertyAnnotation() {
         rewriteRun(
           spec -> spec.recipe(new ChangeSpringPropertyKey("foo", "bar", List.of("baz")))
-            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-boot-autoconfigure-2.+")),
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-boot-autoconfigure-2")),
           java(
             """
               import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -383,6 +458,154 @@ class ChangeSpringPropertyKeyTest implements RewriteTest {
                   public String fooBazes() {
                       return "foo.bazes";
                   }
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void changeTestAnnotationWithImplicityLiteralProperty() {
+        rewriteRun(
+          spec -> spec.recipe(new ChangeSpringPropertyKey("server.servlet-path", "server.servlet.path", List.of("foo")))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-boot-test-3.2")),
+          java(
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest("server.servlet-path=/")
+              class SomeTest {}
+              """,
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest("server.servlet.path=/")
+              class SomeTest {}
+              """
+          )
+        );
+    }
+
+    @Test
+    void changeTestAnnotationWithLiteralProperty() {
+        rewriteRun(
+          spec -> spec.recipe(new ChangeSpringPropertyKey("server.servlet-path", "server.servlet.path", List.of("foo")))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-boot-test-3.2")),
+          java(
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest(properties = "server.servlet-path=/")
+              class SomeTest {}
+              """,
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest(properties = "server.servlet.path=/")
+              class SomeTest {}
+              """
+          )
+        );
+    }
+
+    @Test
+    void changeTestAnnotationWithArrayProperties() {
+        rewriteRun(
+          spec -> spec.recipe(new ChangeSpringPropertyKey("server.servlet-path", "server.servlet.path", List.of("foo")))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-boot-test-3.2")),
+          java(
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest(properties = { "server.servlet-path=/", "server.servlet-path.foo=/foo" })
+              class SomeTest {}
+              """,
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest(properties = { "server.servlet.path=/", "server.servlet-path.foo=/foo" })
+              class SomeTest {}
+              """
+          )
+        );
+    }
+
+    @Test
+    void changeTestAnnotationWithImplicitArrayProperties() {
+        rewriteRun(
+          spec -> spec.recipe(new ChangeSpringPropertyKey("server.servlet-path", "server.servlet.path", List.of("foo")))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-boot-test-3.2")),
+          java(
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest({ "server.servlet-path=/", "server.servlet-path.foo=/foo" })
+              class SomeTest {}
+              """,
+            """
+              import org.springframework.boot.test.context.SpringBootTest;
+
+              @SpringBootTest({ "server.servlet.path=/", "server.servlet-path.foo=/foo" })
+              class SomeTest {}
+              """
+          )
+        );
+    }
+
+    @Test
+    void avoidRegenerativeChangesInAnnotation() {
+        rewriteRun(
+          spec -> spec
+            .recipe(
+              new ChangeSpringPropertyKey("spring.data.redis.ssl", "spring.data.redis.ssl.enabled", List.of()))
+            .parser(JavaParser.fromJavaVersion().classpathFromResources(new InMemoryExecutionContext(), "spring-beans-5", "spring-boot-test-3.2", "spring-boot-autoconfigure-2")),
+          java(
+            """
+              import org.springframework.beans.factory.annotation.Value;
+              import org.springframework.boot.test.context.SpringBootTest;
+              import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+
+              @SpringBootTest({ "spring.data.redis.ssl.enabled=true" })
+              @ConditionalOnProperty(name = "spring.data.redis.ssl.enabled", havingValue = "true")
+              class MyConfiguration {
+                  @Value("${spring.data.redis.ssl.enabled:false}")
+                  private boolean redisSslEnabled;
+              }
+              """
+          )
+        );
+    }
+
+    @Test
+    void supportKotlinAnnotations() {
+        rewriteRun(
+          spec -> spec
+            .recipe(
+              new ChangeSpringPropertyKey("spring.data.redis.ssl.enabled", "some.other.key.enabled", List.of()))
+            .parser(KotlinParser.builder().classpathFromResources(new InMemoryExecutionContext(), "spring-beans-5", "spring-boot-test-3.2", "spring-boot-autoconfigure-2")),
+          kotlin(
+            """
+              import org.springframework.beans.factory.annotation.Value
+              import org.springframework.boot.test.context.SpringBootTest
+              import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+
+              @SpringBootTest({ "spring.data.redis.ssl.enabled=true" })
+              @ConditionalOnProperty(name = ["spring.data.redis.ssl.enabled"], havingValue = "true")
+              class MyConfiguration {
+                  @Value("\\${spring.data.redis.ssl.enabled:false}")
+                  private val useSSl: Boolean = false
+              }
+              """,
+            """
+              import org.springframework.beans.factory.annotation.Value
+              import org.springframework.boot.test.context.SpringBootTest
+              import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+
+              @SpringBootTest({ "some.other.key.enabled=true" })
+              @ConditionalOnProperty(name = ["some.other.key.enabled"], havingValue = "true")
+              class MyConfiguration {
+                  @Value("\\${some.other.key.enabled:false}")
+                  private val useSSl: Boolean = false
               }
               """
           )

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -31,15 +32,11 @@ import static java.util.stream.Collectors.joining;
 public class EnvironmentAcceptsProfiles extends Recipe {
     private static final MethodMatcher MATCHER = new MethodMatcher("org.springframework.core.env.Environment acceptsProfiles(java.lang.String...)");
 
-    @Override
-    public String getDisplayName() {
-        return "Use `Environment#acceptsProfiles(Profiles)`";
-    }
+    @Getter
+    final String displayName = "Use `Environment#acceptsProfiles(Profiles)`";
 
-    @Override
-    public String getDescription() {
-        return "`Environment#acceptsProfiles(String...)` was deprecated in Spring Framework 5.1.";
-    }
+    @Getter
+    final String description = "`Environment#acceptsProfiles(String...)` was deprecated in Spring Framework 5.1.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -53,15 +50,15 @@ public class EnvironmentAcceptsProfiles extends Recipe {
                 maybeAddImport("org.springframework.core.env.Profiles");
                 String template = "Profiles.of(" + method.getArguments().stream().map(a -> "#{any(java.lang.String)}").collect(joining(",")) + ")";
                 method = JavaTemplate.builder(template)
-                    .imports("org.springframework.core.env.Profiles", "org.springframework.core.env.Environment")
-                    .javaParser(JavaParser.fromJavaVersion()
-                        .classpathFromResources(ctx, "spring-core-5.*"))
-                    .build()
-                    .apply(
-                        getCursor(),
-                        method.getCoordinates().replaceArguments(),
-                        method.getArguments().toArray()
-                    );
+                        .imports("org.springframework.core.env.Profiles", "org.springframework.core.env.Environment")
+                        .javaParser(JavaParser.fromJavaVersion()
+                                .classpathFromResources(ctx, "spring-core-5.*"))
+                        .build()
+                        .apply(
+                                getCursor(),
+                                method.getCoordinates().replaceArguments(),
+                                method.getArguments().toArray()
+                        );
             }
             return super.visitMethodInvocation(method, ctx);
         }

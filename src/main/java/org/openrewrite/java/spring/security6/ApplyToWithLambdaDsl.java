@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.security6;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -43,22 +44,18 @@ public class ApplyToWithLambdaDsl extends Recipe {
         put("apply", "with");
     }};
 
-    @Override
-    public String getDisplayName() {
-        return "Convert `HttpSecurity::apply` chained calls into `HttpSecurity::with` Lambda DSL";
-    }
+    @Getter
+    final String displayName = "Convert `HttpSecurity::apply` chained calls into `HttpSecurity::with` Lambda DSL";
 
-    @Override
-    public String getDescription() {
-        return "Converts `HttpSecurity::apply` chained call from Spring Security pre 6.2.x into new lambda DSL style calls and removes `and()` methods.";
-    }
+    @Getter
+    final String description = "Converts `HttpSecurity::apply` chained call from Spring Security pre 6.2.x into new lambda DSL style calls and removes `and()` methods.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
         return Preconditions.check(
-          new UsesType<>(FQN_ABSTRACT_CONFIGURED_SECURITY_BUILDER, true),
-          new ConvertToSecurityDslVisitor<>(FQN_ABSTRACT_CONFIGURED_SECURITY_BUILDER,
-                  APPLICABLE_METHOD_NAMES, ARG_REPLACEMENTS, METHOD_RENAMES)
+                new UsesType<>(FQN_ABSTRACT_CONFIGURED_SECURITY_BUILDER, true),
+                new ConvertToSecurityDslVisitor<>(FQN_ABSTRACT_CONFIGURED_SECURITY_BUILDER,
+                        APPLICABLE_METHOD_NAMES, ARG_REPLACEMENTS, METHOD_RENAMES)
         );
     }
 }

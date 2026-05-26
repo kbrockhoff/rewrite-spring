@@ -22,6 +22,8 @@ description: Migrate applications to the latest Spring Cloud 2025 (Northfields) 
 tags:
   - spring
   - cloud
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   # Do not chain previous versions of Spring Cloud; leave inclusion up to Spring Boot migrations to avoid duplicates
   - org.openrewrite.java.spring.cloud2025.DependencyUpgrades
@@ -40,6 +42,8 @@ description: Upgrade dependencies to Spring Cloud 2025 from prior 2024.x version
 tags:
   - spring
   - cloud
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: org.springframework.cloud
@@ -91,37 +95,77 @@ recipeList:
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
-name: org.openrewrite.java.spring.cloud2025.SpringCloudGatewayDeprecatedModulesAndStarters
-displayName: Migrate to New Spring Cloud Gateway Modules and Starters
-description: Migrate to new Spring Cloud Gateway modules and starters for Spring Cloud 2025
+name: org.openrewrite.java.spring.cloud2025.UpgradeSpringCloud_2025_1
+displayName: Migrate to Spring Cloud 2025.1
+description: Migrate applications to the latest Spring Cloud 2025.1 release, compatible with Spring Boot 4.0.
 tags:
   - spring
   - cloud
+preconditions:
+  - org.openrewrite.Singleton
+recipeList:
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.springframework.cloud
+      artifactId: "*"
+      newVersion: 5.0.x
+      overrideManagedVersion: false
+  # spring-cloud-starter-parent was removed in 2025.1; migrate to spring-boot-starter-parent + BOM
+  - org.openrewrite.maven.ChangeParentPom:
+      oldGroupId: org.springframework.cloud
+      oldArtifactId: spring-cloud-starter-parent
+      newGroupId: org.springframework.boot
+      newArtifactId: spring-boot-starter-parent
+      newVersion: 4.0.x
+      allowVersionDowngrades: true
+  - org.openrewrite.java.spring.cloud2025.AddSpringCloudDependenciesBom
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.springframework.cloud
+      artifactId: spring-cloud-dependencies
+      newVersion: 2025.1.x
+      overrideManagedVersion: false
+  # Circuitbreaker, kubernetes, task and others once again use aligned 5.0.x; no need to bump those separately anymore
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.spring.cloud2025.SpringCloudGatewayDeprecatedModulesAndStarters
+displayName: Migrate to New Spring Cloud Gateway Modules and Starters
+description: Migrate to new Spring Cloud Gateway modules and starters for Spring Cloud 2025.
+tags:
+  - spring
+  - cloud
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: org.springframework.cloud
       oldArtifactId: spring-cloud-gateway-server
       newArtifactId: spring-cloud-gateway-server-webflux
+      newVersion: 4.3.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: org.springframework.cloud
       oldArtifactId: spring-cloud-gateway-server-mvc
       newArtifactId: spring-cloud-gateway-server-webmvc
+      newVersion: 4.3.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: org.springframework.cloud
-      oldArtifactId: spring-cloud-starter-gateway-server
+      oldArtifactId: spring-cloud-starter-gateway
       newArtifactId: spring-cloud-starter-gateway-server-webflux
+      newVersion: 4.3.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: org.springframework.cloud
-      oldArtifactId: spring-cloud-starter-gateway-server-mvc
+      oldArtifactId: spring-cloud-starter-gateway-mvc
       newArtifactId: spring-cloud-starter-gateway-server-webmvc
+      newVersion: 4.3.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: org.springframework.cloud
       oldArtifactId: spring-cloud-gateway-mvc
       newArtifactId: spring-cloud-gateway-proxyexchange-webmvc
+      newVersion: 4.3.x
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: org.springframework.cloud
       oldArtifactId: spring-cloud-gateway-webflux
       newArtifactId: spring-cloud-gateway-proxyexchange-webflux
+      newVersion: 4.3.x
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -131,6 +175,8 @@ description: Migrate Spring Cloud Gateway properties for Spring Cloud 2025 relea
 tags:
   - spring
   - cloud
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.cloud.gateway
@@ -152,6 +198,7 @@ preconditions:
   - org.openrewrite.java.dependencies.search.ModuleHasDependency:
       groupIdPattern: org.springframework.cloud
       artifactIdPattern: spring-cloud-gateway-webflux
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.cloud.gateway.proxy
@@ -169,6 +216,7 @@ preconditions:
   - org.openrewrite.java.dependencies.search.ModuleHasDependency:
       groupIdPattern: org.springframework.cloud
       artifactIdPattern: spring-cloud-gateway-proxyexchange-webflux
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.cloud.gateway.proxy
@@ -186,6 +234,7 @@ preconditions:
   - org.openrewrite.java.dependencies.search.ModuleHasDependency:
       groupIdPattern: org.springframework.cloud
       artifactIdPattern: spring-cloud-gateway-mvc
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.cloud.gateway.proxy
@@ -203,7 +252,31 @@ preconditions:
   - org.openrewrite.java.dependencies.search.ModuleHasDependency:
       groupIdPattern: org.springframework.cloud
       artifactIdPattern: spring-cloud-gateway-proxyexchange-webmvc
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.cloud.gateway.proxy
       newPropertyKey: spring.cloud.gateway.proxy-exchange-webmvc
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.spring.cloud2025.AddSpringCloudDependenciesBom
+displayName: Add Spring Cloud dependencies BOM
+description: >-
+  Adds the Spring Cloud dependencies BOM as a managed import, but only when the project already uses
+  a Spring Cloud dependency. Prevents accidentally introducing the BOM into unrelated projects.
+tags:
+  - spring
+  - cloud
+preconditions:
+  - org.openrewrite.java.dependencies.search.ModuleHasDependency:
+      groupIdPattern: org.springframework.cloud
+      artifactIdPattern: "*"
+  - org.openrewrite.Singleton
+recipeList:
+  - org.openrewrite.maven.AddManagedDependency:
+      groupId: org.springframework.cloud
+      artifactId: spring-cloud-dependencies
+      version: 2025.1.x
+      type: pom
+      scope: import

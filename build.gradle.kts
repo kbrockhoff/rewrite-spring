@@ -22,6 +22,8 @@ recipeDependencies {
     parserClasspath("org.springframework.boot:spring-boot:2.+")
     parserClasspath("org.springframework.boot:spring-boot:3.+")
 
+    parserClasspath("org.springframework.boot:spring-boot-resttestclient:4.+")
+
     parserClasspath("org.springframework.boot:spring-boot-autoconfigure:2.+")
     parserClasspath("org.springframework.boot:spring-boot-autoconfigure:3.+")
     parserClasspath("org.springframework.boot:spring-boot-actuator:2.+")
@@ -52,15 +54,20 @@ recipeDependencies {
     parserClasspath("org.springframework:spring-webmvc:5.+")
 
     parserClasspath("org.springframework.data:spring-data-commons:2.7.+")
+    parserClasspath("org.springframework.data:spring-data-commons:3.0.+")
     parserClasspath("org.springframework.data:spring-data-commons:1.+")
     parserClasspath("org.springframework.data:spring-data-jpa:2.+")
     parserClasspath("org.springframework.data:spring-data-jpa:2.3.+")
+    parserClasspath("org.springframework.data:spring-data-jpa:3.0.+")
+    parserClasspath("org.springframework.data:spring-data-rest-webmvc:3.1.+")
     parserClasspath("org.springframework.data:spring-data-mongodb:2.2.+")
     parserClasspath("org.mongodb:mongo-java-driver:3.12.+")
 
     parserClasspath("org.springframework.batch:spring-batch-core:4.+")
     parserClasspath("org.springframework.batch:spring-batch-core:5.1.+")
     parserClasspath("org.springframework.batch:spring-batch-infrastructure:5.1.+")
+
+    parserClasspath("org.springframework:spring-tx:5.+")
 
     parserClasspath("org.springframework:spring-messaging:5.+")
     parserClasspath("org.springframework.kafka:spring-kafka:2.9.+")
@@ -94,7 +101,10 @@ recipeDependencies {
     parserClasspath("io.micrometer:micrometer-observation:1.11.+")
     parserClasspath("io.springfox:springfox-swagger2:3.+")
     parserClasspath("io.swagger.core.v3:swagger-models:2.+")
+    parserClasspath("javax.ws.rs:javax.ws.rs-api:2.1.1")
+    parserClasspath("jakarta.ws.rs:jakarta.ws.rs-api:4.0.0")
 
+    testParserClasspath("com.fasterxml.jackson.core:jackson-core:2.20.+")
     testParserClasspath("com.nimbusds:nimbus-jose-jwt:9.13")
     testParserClasspath("io.projectreactor:reactor-core:3.6.3")
     testParserClasspath("io.springfox:springfox-core:3.+")
@@ -104,6 +114,7 @@ recipeDependencies {
     testParserClasspath("jakarta.persistence:jakarta.persistence-api:2.2.3")
     testParserClasspath("jakarta.validation:jakarta.validation-api:2.0.2")
     testParserClasspath("jakarta.validation:jakarta.validation-api:3.0.+")
+    testParserClasspath("jakarta.ws.rs:jakarta.ws.rs-api:2.1.6")
     testParserClasspath("jakarta.xml.bind:jakarta.xml.bind-api:2.3.3")
     testParserClasspath("javax.persistence:javax.persistence-api:2.2")
     testParserClasspath("javax.servlet:javax.servlet-api:4.+")
@@ -122,12 +133,15 @@ recipeDependencies {
     testParserClasspath("org.springframework.batch:spring-batch-infrastructure:5.+")
     testParserClasspath("org.springframework.batch:spring-batch-test:4.3.+")
 
+    testParserClasspath("org.springframework.kafka:spring-kafka:2.8.+")
+
     testParserClasspath("org.springframework.boot:spring-boot-actuator:2.1.+")
     testParserClasspath("org.springframework.boot:spring-boot-actuator:3.0.+")
     testParserClasspath("org.springframework.boot:spring-boot-actuator:3.4.+")
     testParserClasspath("org.springframework.boot:spring-boot-autoconfigure:1.5.+")
     testParserClasspath("org.springframework.boot:spring-boot-autoconfigure:2.3.+")
     testParserClasspath("org.springframework.boot:spring-boot-test-autoconfigure:2.4.+")
+    testParserClasspath("org.springframework.boot:spring-boot-test-autoconfigure:3.4.+")
     testParserClasspath("org.springframework.boot:spring-boot-test:1.5.+")
     testParserClasspath("org.springframework.boot:spring-boot-test:2.4.+")
     testParserClasspath("org.springframework.boot:spring-boot-test:2.7.+")
@@ -147,7 +161,9 @@ recipeDependencies {
     testParserClasspath("org.springframework.data:spring-data-jpa:2.3.+")
     testParserClasspath("org.springframework.data:spring-data-jpa:2.4.+")
     testParserClasspath("org.springframework.data:spring-data-jpa:2.7.+")
+    testParserClasspath("org.springframework.data:spring-data-jpa:3.0.+")
     testParserClasspath("org.springframework.data:spring-data-jpa:3.4.7")
+    testParserClasspath("org.springframework.data:spring-data-commons:3.0.+")
     testParserClasspath("org.springframework.data:spring-data-mongodb:2.2.+")
 
     testParserClasspath("org.springframework.plugin:spring-plugin-core:2.0.0.RELEASE")
@@ -206,6 +222,7 @@ dependencies {
 
     testImplementation("org.openrewrite:rewrite-test")
     testImplementation("org.openrewrite.gradle.tooling:model:$rewriteVersion")
+    testImplementation("org.junit-pioneer:junit-pioneer:2.0.0")
 
     // for generating properties migration configurations
     testImplementation("io.github.classgraph:classgraph:latest.release")

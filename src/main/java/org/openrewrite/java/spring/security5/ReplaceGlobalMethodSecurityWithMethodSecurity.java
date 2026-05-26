@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.security5;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -39,17 +40,13 @@ public class ReplaceGlobalMethodSecurityWithMethodSecurity extends Recipe {
     private static final String EnableGlobalMethodSecurityFqn = "org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity";
     private static final String EnableMethodSecurityFqn = "org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity";
 
-    @Override
-    public String getDisplayName() {
-        return "Replace global method security with method security";
-    }
+    @Getter
+    final String displayName = "Replace global method security with method security";
 
-    @Override
-    public String getDescription() {
-        return "`@EnableGlobalMethodSecurity` and `<global-method-security>` are deprecated in favor of " +
-               "`@EnableMethodSecurity` and `<method-security>`, respectively. The new annotation and XML " +
-               "element activate Spring’s pre-post annotations by default and use AuthorizationManager internally.";
-    }
+    @Getter
+    final String description = "`@EnableGlobalMethodSecurity` and `<global-method-security>` are deprecated in favor of " +
+            "`@EnableMethodSecurity` and `<method-security>`, respectively. The new annotation and XML " +
+            "element activate Spring’s pre-post annotations by default and use AuthorizationManager internally.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -60,8 +57,8 @@ public class ReplaceGlobalMethodSecurityWithMethodSecurity extends Recipe {
                     public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
                         annotation = super.visitAnnotation(annotation, ctx);
                         if (ENABLE_GLOBAL_METHOD_SECURITY_MATCHER.matches(annotation)) {
-                            maybeAddImport(EnableMethodSecurityFqn);
                             maybeRemoveImport(EnableGlobalMethodSecurityFqn);
+                            maybeAddImport(EnableMethodSecurityFqn);
                             J.Annotation replacementAnnotation = JavaTemplate.builder("@EnableMethodSecurity(prePostEnabled = false)")
                                     .javaParser(JavaParser.fromJavaVersion()
                                             .classpathFromResources(ctx, "spring-security-config-5.8.+"))
@@ -89,7 +86,7 @@ public class ReplaceGlobalMethodSecurityWithMethodSecurity extends Recipe {
                         if (arg instanceof J.Assignment) {
                             J.Assignment assignment = (J.Assignment) arg;
                             return "prePostEnabled".equals(((J.Identifier) assignment.getVariable()).getSimpleName()) &&
-                                   RemoveMethodInvocationsVisitor.isTrue(assignment.getAssignment());
+                                    RemoveMethodInvocationsVisitor.isTrue(assignment.getAssignment());
                         }
                         return false;
                     }

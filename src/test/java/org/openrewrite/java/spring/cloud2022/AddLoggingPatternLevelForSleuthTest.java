@@ -39,8 +39,7 @@ class AddLoggingPatternLevelForSleuthTest implements RewriteTest {
             //language=xml
             pomXml(
               """
-                    <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+                    <project>
                     <modelVersion>4.0.0</modelVersion>
                     <groupId>com.example</groupId>
                     <artifactId>explicit-deps-app</artifactId>
@@ -58,10 +57,10 @@ class AddLoggingPatternLevelForSleuthTest implements RewriteTest {
             properties(
               "foo=bar",
               """
-                    foo=bar
-                    # Logging pattern containing traceId and spanId; no longer provided through Sleuth by default
-                    logging.pattern.level="%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
-                    """,
+                foo=bar
+                # Logging pattern containing traceId and spanId; no longer provided through Sleuth by default
+                logging.pattern.level="%5p [${spring.application.name:},%X{traceId:-},%X{spanId:-}]"
+                """,
               s -> s.path("src/main/resources/application.properties")
             ),
             //language=yaml
@@ -86,8 +85,7 @@ class AddLoggingPatternLevelForSleuthTest implements RewriteTest {
             //language=xml
             pomXml(
               """
-                    <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+                    <project>
                     <modelVersion>4.0.0</modelVersion>
                     <groupId>com.example</groupId>
                     <artifactId>explicit-deps-app</artifactId>

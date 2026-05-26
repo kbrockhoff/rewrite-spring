@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.search;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
@@ -36,16 +37,12 @@ public class FindSpringComponents extends Recipe {
     transient SpringComponents springComponents = new SpringComponents(this);
     transient SpringComponentRelationships componentRelationships = new SpringComponentRelationships(this);
 
-    @Override
-    public String getDisplayName() {
-        return "Find Spring components";
-    }
+    @Getter
+    final String displayName = "Find Spring components";
 
-    @Override
-    public String getDescription() {
-        return "Find Spring components, including controllers, services, repositories, " +
-               "return types of `@Bean` annotated methods, etc.";
-    }
+    @Getter
+    final String description = "Find Spring components, including controllers, services, repositories, " +
+            "return types of `@Bean` annotated methods, etc.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -71,7 +68,7 @@ public class FindSpringComponents extends Recipe {
             public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
                 J.MethodDeclaration m = super.visitMethodDeclaration(method, ctx);
                 if (!FindAnnotations.find(m, "@org.springframework.context.annotation.Bean").isEmpty() &&
-                    m.getReturnTypeExpression() != null) {
+                        m.getReturnTypeExpression() != null) {
 
                     m = SearchResult.found(m, "bean");
                     recordDependencies(TypeUtils.asFullyQualified(requireNonNull(m.getReturnTypeExpression()).getType()), m, ctx);

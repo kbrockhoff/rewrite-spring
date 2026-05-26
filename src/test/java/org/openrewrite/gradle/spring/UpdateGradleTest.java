@@ -62,29 +62,29 @@ class UpdateGradleTest implements RewriteTest {
                   implementation "org.springframework.boot:spring-boot-starter-web"
               }
               """,
-                spec -> spec.after(gradle -> {
-                    Matcher version = Pattern.compile("2\\.7\\.\\d+").matcher(gradle);
-                    assertThat(version.find()).describedAs("Expected 2.7.x in %s", gradle).isTrue();
-                    //language=gradle
-                    return """
-              plugins {
-                  id "java"
-                  id "org.springframework.boot" version "%s"
-                  id "io.spring.dependency-management" version "1.0.15.RELEASE"
-              }
+            spec -> spec.after(gradle -> {
+                Matcher version = Pattern.compile("2\\.7\\.\\d+").matcher(gradle);
+                assertThat(version.find()).describedAs("Expected 2.7.x in %s", gradle).isTrue();
+                //language=gradle
+                return """
+                  plugins {
+                      id "java"
+                      id "org.springframework.boot" version "%s"
+                      id "io.spring.dependency-management" version "1.0.15.RELEASE"
+                  }
 
-              repositories {
-                  mavenCentral()
-              }
+                  repositories {
+                      mavenCentral()
+                  }
 
-              dependencies {
-                  implementation "org.springframework.boot:spring-boot-starter-web"
-              }
-              tasks.withType(Test).configureEach {
-                  useJUnitPlatform()
-              }
-              """.formatted(version.group());
-                })
+                  dependencies {
+                      implementation "org.springframework.boot:spring-boot-starter-web"
+                  }
+                  tasks.withType(Test).configureEach {
+                      useJUnitPlatform()
+                  }
+                  """.formatted(version.group());
+            })
             //language=gradle
           ),
           properties(
@@ -92,7 +92,7 @@ class UpdateGradleTest implements RewriteTest {
             """
               distributionBase=GRADLE_USER_HOME
               distributionPath=wrapper/dists
-              distributionUrl=https\\://services.gradle.org/distributions/gradle-6.7-bin.zip
+              distributionUrl=https\\://downloads.gradle.org/distributions/gradle-6.7-bin.zip
               zipStoreBase=GRADLE_USER_HOME
               zipStorePath=wrapper/dists
               """,
@@ -100,7 +100,7 @@ class UpdateGradleTest implements RewriteTest {
             """
               distributionBase=GRADLE_USER_HOME
               distributionPath=wrapper/dists
-              distributionUrl=https\\://services.gradle.org/distributions/gradle-6.9.4-bin.zip
+              distributionUrl=https\\://downloads.gradle.org/distributions/gradle-6.9.4-bin.zip
               zipStoreBase=GRADLE_USER_HOME
               zipStorePath=wrapper/dists
               distributionSha256Sum=3e240228538de9f18772a574e99a0ba959e83d6ef351014381acd9631781389a
@@ -135,6 +135,32 @@ class UpdateGradleTest implements RewriteTest {
     }
 
     @Test
+    void handlesUpdatingGradleUrlFromServicesToDownloads() {
+        rewriteRun(
+          properties(
+            //language=properties
+            """
+              distributionBase=GRADLE_USER_HOME
+              distributionPath=wrapper/dists
+              distributionUrl=https\\://services.gradle.org/distributions/gradle-6.7-bin.zip
+              zipStoreBase=GRADLE_USER_HOME
+              zipStorePath=wrapper/dists
+              """,
+            //language=properties
+            """
+              distributionBase=GRADLE_USER_HOME
+              distributionPath=wrapper/dists
+              distributionUrl=https\\://downloads.gradle.org/distributions/gradle-6.9.4-bin.zip
+              zipStoreBase=GRADLE_USER_HOME
+              zipStorePath=wrapper/dists
+              distributionSha256Sum=3e240228538de9f18772a574e99a0ba959e83d6ef351014381acd9631781389a
+              """,
+            spec -> spec.path("gradle/wrapper/gradle-wrapper.properties")
+          )
+        );
+    }
+
+    @Test
     void dontAddSpringDependencyManagementWhenUsingGradlePlatform() {
         rewriteRun(
           buildGradle(
@@ -154,36 +180,36 @@ class UpdateGradleTest implements RewriteTest {
                   implementation "org.springframework.boot:spring-boot-starter-web"
               }
               """,
-                spec -> spec.after(gradle -> {
-                    Matcher version = Pattern.compile("2\\.7\\.\\d+").matcher(gradle);
-                    assertThat(version.find()).describedAs("Expected 2.7.x in %s", gradle).isTrue();
-                    //language=gradle
-                    return """
-              plugins {
-                  id "java"
-                  id "org.springframework.boot" version "%s"
-              }
+            spec -> spec.after(gradle -> {
+                Matcher version = Pattern.compile("2\\.7\\.\\d+").matcher(gradle);
+                assertThat(version.find()).describedAs("Expected 2.7.x in %s", gradle).isTrue();
+                //language=gradle
+                return """
+                  plugins {
+                      id "java"
+                      id "org.springframework.boot" version "%s"
+                  }
 
-              repositories {
-                  mavenCentral()
-              }
+                  repositories {
+                      mavenCentral()
+                  }
 
-              dependencies {
-                  implementation platform("org.springframework.boot:spring-boot-dependencies:%s")
-                  implementation "org.springframework.boot:spring-boot-starter-web"
-              }
-              tasks.withType(Test).configureEach {
-                  useJUnitPlatform()
-              }
-              """.formatted(version.group(), version.group());
-                })
+                  dependencies {
+                      implementation platform("org.springframework.boot:spring-boot-dependencies:%s")
+                      implementation "org.springframework.boot:spring-boot-starter-web"
+                  }
+                  tasks.withType(Test).configureEach {
+                      useJUnitPlatform()
+                  }
+                  """.formatted(version.group(), version.group());
+            })
           ),
           properties(
             //language=properties
             """
               distributionBase=GRADLE_USER_HOME
               distributionPath=wrapper/dists
-              distributionUrl=https\\://services.gradle.org/distributions/gradle-6.7-bin.zip
+              distributionUrl=https\\://downloads.gradle.org/distributions/gradle-6.7-bin.zip
               zipStoreBase=GRADLE_USER_HOME
               zipStorePath=wrapper/dists
               """,
@@ -191,7 +217,7 @@ class UpdateGradleTest implements RewriteTest {
             """
               distributionBase=GRADLE_USER_HOME
               distributionPath=wrapper/dists
-              distributionUrl=https\\://services.gradle.org/distributions/gradle-6.9.4-bin.zip
+              distributionUrl=https\\://downloads.gradle.org/distributions/gradle-6.9.4-bin.zip
               zipStoreBase=GRADLE_USER_HOME
               zipStorePath=wrapper/dists
               distributionSha256Sum=3e240228538de9f18772a574e99a0ba959e83d6ef351014381acd9631781389a
@@ -206,7 +232,7 @@ class UpdateGradleTest implements RewriteTest {
                   return after + "\n";
               }).afterRecipe(gradlew -> {
                   assertThat(gradlew.getFileAttributes())
-                      .matches(FileAttributes::isReadable);
+                    .matches(FileAttributes::isReadable);
                   assertThat(gradlew.getFileAttributes().isExecutable()).isTrue();
               })
           ),

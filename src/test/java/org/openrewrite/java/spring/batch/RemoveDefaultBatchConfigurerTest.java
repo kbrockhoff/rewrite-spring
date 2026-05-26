@@ -50,7 +50,7 @@ class RemoveDefaultBatchConfigurerTest implements RewriteTest {
                   }
               }
               """,
-                """
+            """
               class Foo {
               }
               """
@@ -76,7 +76,7 @@ class RemoveDefaultBatchConfigurerTest implements RewriteTest {
                   }
               }
               """,
-                """
+            """
               class Foo {
               }
               """
@@ -99,7 +99,7 @@ class RemoveDefaultBatchConfigurerTest implements RewriteTest {
                   }
               }
               """,
-                """
+            """
               class Foo {
                   /*~~(TODO Used to override a DefaultBatchConfigurer method; reconsider if still needed)~~>*/
                   public void setDataSource(javax.sql.DataSource dataSource) {
@@ -138,7 +138,7 @@ class RemoveDefaultBatchConfigurerTest implements RewriteTest {
                   }
               }
               """,
-                """
+            """
               class Foo implements bar.Bar {
 
                   @Override
@@ -159,13 +159,13 @@ class RemoveDefaultBatchConfigurerTest implements RewriteTest {
             """
               import org.springframework.batch.core.configuration.annotation.BatchConfigurer;
               import org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer;
-              class FooConfig  {
+              class FooConfig {
                   public BatchConfigurer bean(javax.sql.DataSource dataSource) {
                       return new DefaultBatchConfigurer(dataSource);
                   }
               }
               """,
-                """
+            """
               class FooConfig {
               }
               """

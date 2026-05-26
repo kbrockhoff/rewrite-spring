@@ -15,7 +15,9 @@
  */
 package org.openrewrite.java.spring.search;
 
+import lombok.AccessLevel;
 import lombok.EqualsAndHashCode;
+import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Recipe;
@@ -37,17 +39,10 @@ public class FindConfigurationProperties extends Recipe {
 
     transient ConfigurationPropertiesTable configProperties = new ConfigurationPropertiesTable(this);
 
-    @Override
-    public String getDisplayName() {
-        return "Find Spring `@ConfigurationProperties`";
-    }
+    String displayName = "Find Spring `@ConfigurationProperties`";
 
-    @Override
-    public String getDescription() {
-        //language=markdown
-        return "Find all classes annotated with `@ConfigurationProperties` and extract their prefix values. " +
-                "This is useful for discovering all externalized configuration properties in Spring Boot applications.";
-    }
+    String description = "Find all classes annotated with `@ConfigurationProperties` and extract their prefix values. " +
+            "This is useful for discovering all externalized configuration properties in Spring Boot applications.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -80,16 +75,11 @@ public class FindConfigurationProperties extends Recipe {
                 return c;
             }
 
+            @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
             class PrefixInfo {
                 final String value;
                 final String source;
                 final boolean isConstant;
-
-                PrefixInfo(String value, String source, boolean isConstant) {
-                    this.value = value;
-                    this.source = source;
-                    this.isConstant = isConstant;
-                }
             }
 
             private PrefixInfo extractPrefix(J.Annotation annotation, J.ClassDeclaration classDecl) {

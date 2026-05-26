@@ -15,6 +15,9 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
@@ -32,15 +35,11 @@ import static java.util.Collections.singletonList;
 
 public class OutputCaptureExtension extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `@OutputCaptureRule` to `@ExtendWith(OutputCaptureExtension.class)`";
-    }
+    @Getter
+    final String displayName = "Migrate `@OutputCaptureRule` to `@ExtendWith(OutputCaptureExtension.class)`";
 
-    @Override
-    public String getDescription() {
-        return "Use the JUnit Jupiter extension instead of JUnit 4 rule.";
-    }
+    @Getter
+    final String description = "Use the JUnit Jupiter extension instead of JUnit 4 rule.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -99,12 +98,12 @@ public class OutputCaptureExtension extends Recipe {
                             .build();
 
                     c = addOutputCaptureExtension.apply(
-                        getCursor(),
-                        c.getCoordinates()
-                            .addAnnotation(Comparator.comparing(
-                                J.Annotation::getSimpleName,
-                                new RuleBasedCollator("< ExtendWith")
-                            ))
+                            getCursor(),
+                            c.getCoordinates()
+                                    .addAnnotation(Comparator.comparing(
+                                            J.Annotation::getSimpleName,
+                                            new RuleBasedCollator("< ExtendWith")
+                                    ))
                     );
 
                     maybeAddImport("org.springframework.boot.test.system.OutputCaptureExtension");
@@ -123,12 +122,9 @@ public class OutputCaptureExtension extends Recipe {
             "org.springframework.boot.test.system.OutputCaptureRule expect(..)"
     );
 
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     private static final class ConvertExpectMethods extends JavaIsoVisitor<ExecutionContext> {
         private final String variableName;
-
-        private ConvertExpectMethods(String variableName) {
-            this.variableName = variableName;
-        }
 
         @Override
         public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
@@ -146,13 +142,10 @@ public class OutputCaptureExtension extends Recipe {
         }
     }
 
+    @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     private static final class AddCapturedOutputParameter extends JavaIsoVisitor<ExecutionContext> {
         private static final JavaType.Class CAPTURED_OUTPUT_TYPE = JavaType.ShallowClass.build("org.springframework.boot.test.system.CapturedOutput");
         private final String variableName;
-
-        private AddCapturedOutputParameter(String variableName) {
-            this.variableName = variableName;
-        }
 
         @Override
         public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {

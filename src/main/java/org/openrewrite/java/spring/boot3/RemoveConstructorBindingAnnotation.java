@@ -15,6 +15,8 @@
  */
 package org.openrewrite.java.spring.boot3;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -44,15 +46,11 @@ public class RemoveConstructorBindingAnnotation extends Recipe {
     private static final String ANNOTATION_CONSTRUCTOR_BINDING = "org.springframework.boot.context.properties.ConstructorBinding";
     private static final String ANNOTATION_CONFIG_PROPERTIES = "org.springframework.boot.context.properties.ConfigurationProperties";
 
-    @Override
-    public String getDisplayName() {
-        return "Remove Unnecessary `@ConstructorBinding`";
-    }
+    @Getter
+    final String displayName = "Remove Unnecessary `@ConstructorBinding`";
 
-    @Override
-    public String getDescription() {
-        return "As of Boot 3.0 `@ConstructorBinding` is no longer needed at the type level on `@ConfigurationProperties` classes and should be removed.";
-    }
+    @Getter
+    final String description = "As of Boot 3.0 `@ConstructorBinding` is no longer needed at the type level on `@ConfigurationProperties` classes and should be removed.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -81,7 +79,7 @@ public class RemoveConstructorBindingAnnotation extends Recipe {
                                         J.MethodDeclaration m = (J.MethodDeclaration) s;
                                         // Only visit the `J.MethodDeclaration` subtree and remove the target annotation.
                                         maybeRemoveImport(ANNOTATION_CONSTRUCTOR_BINDING);
-                                        return new RemoveTargetAnnotation(bindingAnnotation.get()).visitMethodDeclaration(m, ctx);
+                                        return (J.MethodDeclaration) new RemoveTargetAnnotation(bindingAnnotation.get()).visit(m, ctx, getCursor().getParentTreeCursor());
                                     }
                                     return s;
                                 }))
@@ -142,12 +140,9 @@ public class RemoveConstructorBindingAnnotation extends Recipe {
              *
              * Move the visitor into a new class if it's reused.
              */
+            @RequiredArgsConstructor
             class RemoveTargetAnnotation extends JavaIsoVisitor<ExecutionContext> {
                 private final J.Annotation targetToRemove;
-
-                public RemoveTargetAnnotation(J.Annotation targetToRemove) {
-                    this.targetToRemove = targetToRemove;
-                }
 
                 @Override
                 public J.@Nullable Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {

@@ -28,7 +28,12 @@ description: >-
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
+  # Migrate multi-condition @ConditionalOnBean before upgrading dependencies,
+  # as the OR→AND semantics change only applies to Boot 1.x projects
+  - org.openrewrite.java.spring.boot2.ConditionalOnBeanAnyNestedConditionBoot1
   # Upgrade 2.0.x from 1.x
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: org.springframework.boot
@@ -74,7 +79,6 @@ recipeList:
   - org.openrewrite.java.spring.boot2.MigrateSpringBootServletInitializerPackageName
   - org.openrewrite.java.spring.boot2.MigrateHttpMessageConvertersPackageName
   - org.openrewrite.java.spring.boot2.MigrateErrorControllerPackageName
-  - org.openrewrite.java.spring.boot2.MigrateHibernateConstraintsToJavax
   - org.openrewrite.java.spring.boot2.MigrateLocalServerPortAnnotation
   - org.openrewrite.java.spring.boot2.MaybeAddSpringBootStarterActuator
   # Update properties
@@ -93,6 +97,23 @@ recipeList:
   - org.openrewrite.java.spring.boot3.UpgradeMyBatisToSpringBoot_2_0
 ---
 type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.spring.boot2.ConditionalOnBeanAnyNestedConditionBoot1
+displayName: Migrate multi-condition `@ConditionalOnBean` annotations from Boot 1.x
+description: >-
+  Migrate multi-condition `@ConditionalOnBean` annotations to use `AnyNestedCondition` when upgrading
+  from Spring Boot 1.x to 2.x. In Boot 1.x, listing multiple beans in `@ConditionalOnBean` meant OR (any match);
+  in Boot 2.x+ it means AND (all must match). This recipe preserves the original OR semantics by wrapping
+  conditions in an `AnyNestedCondition` class.
+preconditions:
+  - org.openrewrite.java.dependencies.search.ModuleHasDependency:
+      groupIdPattern: org.springframework.boot
+      artifactIdPattern: spring-boot-autoconfigure
+      version: 1.x
+  - org.openrewrite.Singleton
+recipeList:
+  - org.openrewrite.java.spring.boot2.ConditionalOnBeanAnyNestedCondition
+---
+type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MigrateToWebServerFactoryCustomizer
 displayName: Use `WebServerFactoryCustomizer`
 description: >-
@@ -101,6 +122,8 @@ description: >-
   and change the interface to `WebServerFactoryCustomizer<ConfigurableServletWebServerFactory>`. This recipe also adjusts
   the types used in the `customize()` method from `*EmbeddedServletContainerFactory` to their `*ServletWebServerFactory`
   counterparts.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.boot2.ChangeEmbeddedServletContainerCustomizer
   - org.openrewrite.java.ChangeType:
@@ -120,6 +143,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MigrateSpringBootServletInitializerPackageName
 displayName: Use `org.springframework.boot.web.servlet.support.SpringBootServletInitializer`
 description: Use `org.springframework.boot.web.servlet.support.SpringBootServletInitializer` instead of the deprecated `org.springframework.boot.web.support.SpringBootServletInitializer` in Spring Boot 1.4 or higher.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.springframework.boot.web.support.SpringBootServletInitializer
@@ -129,6 +154,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MigrateHttpMessageConvertersPackageName
 displayName: Use `org.springframework.boot.autoconfigure.http.HttpMessageConverters`
 description: Use `org.springframework.boot.autoconfigure.http.HttpMessageConverters` instead of the deprecated `org.springframework.boot.autoconfigure.web.HttpMessageConverters` in Spring Boot 2.0 or higher.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.springframework.boot.autoconfigure.web.HttpMessageConverters
@@ -138,15 +165,22 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MigrateErrorControllerPackageName
 displayName: Use `org.springframework.boot.web.servlet.error.ErrorController`
 description: Use `org.springframework.boot.web.servlet.error.ErrorController` instead of the deprecated `org.springframework.boot.autoconfigure.web.ErrorController` in Spring Boot 2.0 or higher.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.springframework.boot.autoconfigure.web.ErrorController
       newFullyQualifiedTypeName: org.springframework.boot.web.servlet.error.ErrorController
 ---
+# TODO: Rename to `org.openrewrite.java.spring.framework.MigrateHibernateConstraintsToJavax`
+# (with a `recipe-rename` entry for backwards compatibility) and move the
+# definition into `spring-framework-50.yml`.
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MigrateHibernateConstraintsToJavax
 displayName: Use `javax.validation.constraints`
 description: Use `javax.validation.constraints` instead of the deprecated `org.hibernate.validator.constraints` in Spring Boot 2.0 or higher.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.hibernate.validator.constraints.NotBlank
@@ -159,12 +193,13 @@ recipeList:
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MaybeAddJavaxValidationApi
 displayName: Add `javax.validation-api` dependency
-description: Conditional on the application using a version of Spring Boot which uses javax but provides a hibernate-validator version which exports the jakarta.validation-api instead
+description: Conditional on the application using a version of Spring Boot which uses javax but provides a hibernate-validator version which exports the jakarta.validation-api instead.
 preconditions:
   - org.openrewrite.java.dependencies.DependencyInsight:
       groupIdPattern: org.springframework.boot
       artifactIdPattern: spring-boot-starter
       version: "[2.2,2.7)"
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.AddDependency:
       groupId: javax.validation
@@ -180,11 +215,12 @@ recipeList:
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MaybeAddSpringBootStarterActuator
 displayName: Replace `micrometer-spring-legacy` with `spring-boot-starter-actuator`
-description: Replace deprecated `micrometer-spring-legacy` with `spring-boot-starter-actuator`
+description: Replace deprecated `micrometer-spring-legacy` with `spring-boot-starter-actuator`.
 preconditions:
   - org.openrewrite.java.dependencies.DependencyInsight:
       groupIdPattern: io.micrometer
       artifactIdPattern: micrometer-spring-legacy
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.RemoveDependency:
       groupId: io.micrometer
@@ -199,6 +235,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot3.UpgradeMyBatisToSpringBoot_2_0
 displayName: Upgrade MyBatis to Spring Boot 2.0
 description: Upgrade MyBatis Spring modules to a version corresponding to Spring Boot 2.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: org.mybatis.spring.boot

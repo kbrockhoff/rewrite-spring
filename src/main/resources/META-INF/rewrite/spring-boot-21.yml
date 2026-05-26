@@ -28,8 +28,11 @@ description: >-
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.boot2.UpgradeSpringBoot_2_0
+  - org.openrewrite.java.spring.framework.UpgradeSpringFramework_5_1
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
       groupId: org.springframework.boot
       artifactId: "*"
@@ -72,6 +75,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot2.MigrateRestTemplateBuilderBasicAuthorization
 displayName: Use `RestTemplateBuilder#basicAuthentication`
 description: '`RestTemplateBuilder#basicAuthorization` was deprecated in 2.1.'
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangeMethodName:
       methodPattern: org.springframework.boot.web.client.RestTemplateBuilder basicAuthorization(String, String)
@@ -82,6 +87,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot3.UpgradeMyBatisToSpringBoot_2_1
 displayName: Upgrade MyBatis to Spring Boot 2.1
 description: Upgrade MyBatis Spring modules to a version corresponding to Spring Boot 2.1.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.boot3.UpgradeMyBatisToSpringBoot_2_0
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:

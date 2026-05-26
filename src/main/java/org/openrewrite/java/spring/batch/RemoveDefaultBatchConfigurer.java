@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.batch;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -38,15 +39,11 @@ public class RemoveDefaultBatchConfigurer extends Recipe {
     private static final String BATCH_CONFIGURER = "org.springframework.batch.core.configuration.annotation.BatchConfigurer";
     private static final String DEFAULT_BATCH_CONFIGURER = "org.springframework.batch.core.configuration.annotation.DefaultBatchConfigurer";
 
-    @Override
-    public String getDisplayName() {
-        return "Remove `DefaultBatchConfigurer`";
-    }
+    @Getter
+    final String displayName = "Remove `DefaultBatchConfigurer`";
 
-    @Override
-    public String getDescription() {
-        return "Remove `extends DefaultBatchConfigurer` and `@Override` from associated methods.";
-    }
+    @Getter
+    final String description = "Remove `extends DefaultBatchConfigurer` and `@Override` from associated methods.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -71,17 +68,17 @@ public class RemoveDefaultBatchConfigurer extends Recipe {
             if (overridesDefaultBatchConfigurerMethod(md) || callsDefaultBatchConfigurerSuperConstructor(md)) {
                 // Strip @Override
                 md = md.withLeadingAnnotations(ListUtils.map(md.getLeadingAnnotations(),
-                        a -> (TypeUtils.isAssignableTo("java.lang.Override", a.getType())) ? null : a));
+                        a -> TypeUtils.isAssignableTo("java.lang.Override", a.getType()) ? null : a));
                 md = Markup.info(md, "TODO Used to override a DefaultBatchConfigurer method; reconsider if still needed");
 
                 // Strip calls to super()
                 md = md.withBody(md.getBody().withStatements(ListUtils.map(md.getBody().getStatements(),
-                        s -> (s instanceof J.MethodInvocation && "super".equals(((J.MethodInvocation) s).getSimpleName())) ? null : s)));
+                        s -> s instanceof J.MethodInvocation && "super".equals(((J.MethodInvocation) s).getSimpleName()) ? null : s)));
 
                 // Strip calls to super.*()
                 md = md.withBody(md.getBody().withStatements(ListUtils.map(md.getBody().getStatements(),
-                        s -> (s instanceof J.MethodInvocation && ((J.MethodInvocation) s).getSelect() instanceof J.Identifier &&
-                              "super".equals(((J.Identifier) ((J.MethodInvocation) s).getSelect()).getSimpleName())) ? null : s)));
+                        s -> s instanceof J.MethodInvocation && ((J.MethodInvocation) s).getSelect() instanceof J.Identifier &&
+                                "super".equals(((J.Identifier) ((J.MethodInvocation) s).getSelect()).getSimpleName()) ? null : s)));
 
                 // Strip (now) empty methods
                 if (md.getBody().getStatements().isEmpty()) {
@@ -92,9 +89,9 @@ public class RemoveDefaultBatchConfigurer extends Recipe {
             // Strip calls to new DefaultBatchConfigurer()
             List<Statement> statements = md.getBody().getStatements();
             if (statements.size() == 1 &&
-                statements.get(0) instanceof J.Return &&
-                new MethodMatcher(DEFAULT_BATCH_CONFIGURER + " <constructor>(..)")
-                        .matches(((J.Return) statements.get(0)).getExpression())) {
+                    statements.get(0) instanceof J.Return &&
+                    new MethodMatcher(DEFAULT_BATCH_CONFIGURER + " <constructor>(..)")
+                            .matches(((J.Return) statements.get(0)).getExpression())) {
                 maybeRemoveImport(BATCH_CONFIGURER);
                 maybeRemoveImport(DEFAULT_BATCH_CONFIGURER);
                 return null;

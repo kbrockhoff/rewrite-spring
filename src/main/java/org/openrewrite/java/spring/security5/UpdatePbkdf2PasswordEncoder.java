@@ -37,6 +37,7 @@ import java.util.Objects;
 import static java.util.Collections.unmodifiableMap;
 import static org.openrewrite.Tree.randomId;
 import static org.openrewrite.java.spring.internal.LocalVariableUtils.resolveExpression;
+import static org.openrewrite.java.spring.security5.PasswordEncoderUtils.isInsideTargetClass;
 
 @EqualsAndHashCode(callSuper = false)
 @Value
@@ -65,16 +66,10 @@ public class UpdatePbkdf2PasswordEncoder extends Recipe {
         HASH_WIDTH_TO_ALGORITHM_MAP = unmodifiableMap(map);
     }
 
-    @Override
-    public String getDisplayName() {
-        return "Use new `Pbkdf2PasswordEncoder` factory methods";
-    }
+    String displayName = "Use new `Pbkdf2PasswordEncoder` factory methods";
 
-    @Override
-    public String getDescription() {
-        return "In Spring Security 5.8 some `Pbkdf2PasswordEncoder` constructors have been deprecated in favor of factory methods. " +
-                "Refer to the [ Spring Security migration docs](https://docs.spring.io/spring-security/reference/5.8/migration/index.html#_update_pbkdf2passwordencoder) for more information.";
-    }
+    String description = "In Spring Security 5.8 some `Pbkdf2PasswordEncoder` constructors have been deprecated in favor of factory methods. " +
+            "Refer to the [ Spring Security migration docs](https://docs.spring.io/spring-security/reference/5.8/migration/index.html#_update_pbkdf2passwordencoder) for more information.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -83,7 +78,8 @@ public class UpdatePbkdf2PasswordEncoder extends Recipe {
             @Override
             public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J j = super.visitNewClass(newClass, ctx);
-                if (j instanceof J.NewClass && TypeUtils.isOfClassType(((J.NewClass) j).getType(), PBKDF2_PASSWORD_ENCODER_CLASS)) {
+                if (j instanceof J.NewClass && TypeUtils.isOfClassType(((J.NewClass) j).getType(), PBKDF2_PASSWORD_ENCODER_CLASS) &&
+                        !isInsideTargetClass(getCursor(), PBKDF2_PASSWORD_ENCODER_CLASS)) {
                     newClass = (J.NewClass) j;
                     if (DEFAULT_CONSTRUCTOR_MATCHER.matches(newClass)) {
                         maybeAddImport(PBKDF2_PASSWORD_ENCODER_CLASS);
@@ -137,7 +133,7 @@ public class UpdatePbkdf2PasswordEncoder extends Recipe {
             @Override
             public J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                 J j = super.visitMethodInvocation(method, ctx);
-                if (j instanceof J.MethodInvocation && VERSION5_5_FACTORY_MATCHER.matches(((J.MethodInvocation) j))) {
+                if (j instanceof J.MethodInvocation && VERSION5_5_FACTORY_MATCHER.matches((J.MethodInvocation) j)) {
                     maybeAddImport(PBKDF2_PASSWORD_ENCODER_CLASS);
                     method = (J.MethodInvocation) j;
                     return newFactoryMethodTemplate(ctx).apply(getCursor(), method.getCoordinates().replace());

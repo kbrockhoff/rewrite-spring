@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.data;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
@@ -29,16 +30,12 @@ public class MigrateAuditorAwareToOptional extends Recipe {
     private static final MethodMatcher isCurrentAuditor = new MethodMatcher("org.springframework.data.domain.AuditorAware getCurrentAuditor()", true);
     private static final TypeMatcher isOptional = new TypeMatcher("java.util.Optional");
 
-    @Override
-    public String getDisplayName() {
-        return "Make AuditorAware.getCurrentAuditor return `Optional`";
-    }
+    @Getter
+    final String displayName = "Make AuditorAware.getCurrentAuditor return `Optional`";
 
-    @Override
-    public String getDescription() {
-        return "As of Spring boot 2.0, the `AuditorAware.getCurrentAuditor` method should return an `Optional`. " +
-               "This recipe will update the implementations of this method to return an `Optional` using the `ofNullable`.";
-    }
+    @Getter
+    final String description = "As of Spring boot 2.0, the `AuditorAware.getCurrentAuditor` method should return an `Optional`. " +
+            "This recipe will update the implementations of this method to return an `Optional` using the `ofNullable`.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -59,7 +56,7 @@ public class MigrateAuditorAwareToOptional extends Recipe {
         public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
             TypeTree returnType = method.getReturnTypeExpression();
             if (method.getMethodType() == null || !isCurrentAuditor.matches(method.getMethodType()) ||
-                returnType == null || returnType.getType().toString().matches("java.util.Optional<.*>")) {
+                    returnType == null || returnType.getType().toString().matches("java.util.Optional<.*>")) {
                 return method;
             }
             Space space = returnType.getPrefix();
@@ -117,7 +114,7 @@ public class MigrateAuditorAwareToOptional extends Recipe {
                 expression = (Expression) new MemberReferenceToMethodInvocation().visitNonNull(memberReference, ctx, new Cursor(getCursor(), expression).getParent());
             }
             if (expression instanceof J.Lambda) {
-                J.Lambda lambda = ((J.Lambda) expression);
+                J.Lambda lambda = (J.Lambda) expression;
                 J body = lambda.getBody();
                 if (body instanceof J.MethodInvocation &&
                         (((J.MethodInvocation) body).getMethodType() != null && isOptional.matches(((J.MethodInvocation) body).getMethodType().getReturnType()))) {
@@ -153,7 +150,7 @@ public class MigrateAuditorAwareToOptional extends Recipe {
             if (expression instanceof J.NewClass && isAuditorAware.matches(((J.NewClass) expression).getClazz().getType())) {
                 implementationVisitor.setCursor(new Cursor(getCursor(), expression));
                 maybeAddImport("java.util.Optional");
-                return return_.withExpression(implementationVisitor.visitNewClass((J.NewClass) expression, ctx));
+                return return_.withExpression((J.NewClass) implementationVisitor.visit(expression, ctx, getCursor().getParentTreeCursor()));
             }
             return return_;
         }

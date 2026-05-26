@@ -128,6 +128,8 @@ examples:
   - server.servlet.path
   - 'null'
   sources:
+  - before: project
+    language: mavenProject
   - before: |
       server.servlet-path=/tmp/my-server-path
     after: |
@@ -141,6 +143,17 @@ examples:
       server:
         servlet.path: /tmp/my-server-path
     language: yaml
+- description: '`MarkAdditionalSpringConfigFilesTest#enablesChangeSpringPropertyKeyOnFileOutsideSourceSet`'
+  parameters:
+  - server.servlet-path
+  - server.servlet.path
+  - 'null'
+  sources:
+  - before: |
+      server.servlet-path=/tmp/my-server-path
+    after: |
+      server.servlet.path=/tmp/my-server-path
+    language: properties
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.ChangeSpringPropertyValue
@@ -153,6 +166,8 @@ examples:
   - 'null'
   - 'null'
   sources:
+  - before: project
+    language: mavenProject
   - before: server.port=8080
     after: server.port=8081
     language: properties
@@ -165,6 +180,8 @@ examples:
   - server.port
   - This property has been removed.
   sources:
+  - before: project
+    language: mavenProject
   - before: 'server.port: 8080'
     after: |
       # This property has been removed.
@@ -178,6 +195,8 @@ examples:
   parameters:
   - server.servlet-path
   sources:
+  - before: project
+    language: mavenProject
   - before: |
       server.servlet-path=/tmp/my-server-path
     language: properties
@@ -239,6 +258,27 @@ examples:
                                                 @PathVariable(value = "p3") Long anotherName) {
               System.out.println(anotherName);
           }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.NoHttpExchangeAnnotation
+examples:
+- description: '`NoHttpExchangeAnnotationTest#getExchange`'
+  sources:
+  - before: |
+      import org.springframework.web.service.annotation.HttpExchange;
+
+      interface UserApi {
+          @HttpExchange(method = "GET", value = "/api/users")
+          String getUsers();
+      }
+    after: |
+      import org.springframework.web.service.annotation.GetExchange;
+
+      interface UserApi {
+          @GetExchange("/api/users")
+          String getUsers();
       }
     language: java
 ---
@@ -343,6 +383,31 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.RenameBean
 examples:
+- description: '`BeanClasses#impliedName`'
+  parameters:
+  - sample.Foo
+  - foo
+  - bar
+  sources:
+  - before: |
+      package sample;
+
+      import org.springframework.context.annotation.Configuration;
+      import sample.MyType;
+
+      @Configuration
+      class Foo {
+      }
+    after: |
+      package sample;
+
+      import org.springframework.context.annotation.Configuration;
+      import sample.MyType;
+
+      @Configuration
+      class Bar {
+      }
+    language: java
 - description: '`BeanMethods#impliedName`'
   parameters: &id001
   - sample.MyType
@@ -372,31 +437,6 @@ examples:
           public MyType bar() {
               return new MyType();
           }
-      }
-    language: java
-- description: '`BeanClasses#impliedName`'
-  parameters:
-  - sample.Foo
-  - foo
-  - bar
-  sources:
-  - before: |
-      package sample;
-
-      import org.springframework.context.annotation.Configuration;
-      import sample.MyType;
-
-      @Configuration
-      class Foo {
-      }
-    after: |
-      package sample;
-
-      import org.springframework.context.annotation.Configuration;
-      import sample.MyType;
-
-      @Configuration
-      class Bar {
       }
     language: java
 - description: '`Usages#parameterUsage`'
@@ -534,6 +574,52 @@ examples:
             enabled: true
     path: application.yml
     language: yaml
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.batch.AddTransactionManagerToTaskletAndChunk
+examples:
+- description: '`AddTransactionManagerToTaskletAndChunkTest#addTransactionManagerToTasklet`'
+  sources:
+  - before: |
+      import org.springframework.batch.core.Step;
+      import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+      import org.springframework.batch.core.step.tasklet.Tasklet;
+      import org.springframework.beans.factory.annotation.Autowired;
+      import org.springframework.context.annotation.Bean;
+
+      class MyJobConfig {
+
+          @Autowired
+          private StepBuilderFactory stepBuilderFactory;
+
+          @Bean
+          Step myStep(Tasklet myTasklet) {
+              return stepBuilderFactory.get("myStep")
+                      .tasklet(myTasklet)
+                      .build();
+          }
+      }
+    after: |
+      import org.springframework.batch.core.Step;
+      import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+      import org.springframework.batch.core.step.tasklet.Tasklet;
+      import org.springframework.beans.factory.annotation.Autowired;
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.transaction.PlatformTransactionManager;
+
+      class MyJobConfig {
+
+          @Autowired
+          private StepBuilderFactory stepBuilderFactory;
+
+          @Bean
+          Step myStep(Tasklet myTasklet, PlatformTransactionManager transactionManager) {
+              return stepBuilderFactory.get("myStep")
+                      .tasklet(myTasklet, transactionManager)
+                      .build();
+          }
+      }
+    language: java
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.batch.ConvertReceiveTypeWhenCallStepExecutionMethod
@@ -802,6 +888,33 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.batch.MigrateStepExecutionTimestampTypes
+examples:
+- description: '`MigrateStepExecutionTimestampTypesTest#stepExecutionGetStartTime`'
+  sources:
+  - before: |
+      import java.util.Date;
+      import org.springframework.batch.core.StepExecution;
+
+      class MyListener {
+          void afterStep(StepExecution stepExecution) {
+              Date startTime = stepExecution.getStartTime();
+              Date endTime = stepExecution.getEndTime();
+          }
+      }
+    after: |
+      import java.time.LocalDateTime;
+      import org.springframework.batch.core.StepExecution;
+
+      class MyListener {
+          void afterStep(StepExecution stepExecution) {
+              LocalDateTime startTime = stepExecution.getStartTime();
+              LocalDateTime endTime = stepExecution.getEndTime();
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.batch.RemoveDefaultBatchConfigurer
 examples:
 - description: '`RemoveDefaultBatchConfigurerTest#removeSetDataSourceWithCommentOnly`'
@@ -816,6 +929,45 @@ examples:
       }
     after: |
       class Foo {
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.batch.SpringBatch5To6Migration
+examples:
+- description: '`MigrateJobStepTest#jobLauncherInjectedWithBeanAnnotation`'
+  sources:
+  - before: |
+      import org.springframework.batch.core.launch.JobLauncher;
+      import org.springframework.batch.core.repository.JobRepository;
+      import org.springframework.batch.core.step.Step;
+      import org.springframework.batch.core.step.job.JobStep;
+      import org.springframework.context.annotation.Bean;
+
+      class MyJobConfig {
+
+          @Bean
+          JobStep myStep(JobRepository jobRepository, JobLauncher jobLauncher) {
+              JobStep jobStep = new JobStep(jobRepository);
+              jobStep.setJobLauncher(jobLauncher);
+              return jobStep;
+          }
+      }
+    after: |
+      import org.springframework.batch.core.launch.JobOperator;
+      import org.springframework.batch.core.repository.JobRepository;
+      import org.springframework.batch.core.step.Step;
+      import org.springframework.batch.core.step.job.JobStep;
+      import org.springframework.context.annotation.Bean;
+
+      class MyJobConfig {
+
+          @Bean
+          JobStep myStep(JobRepository jobRepository, JobOperator jobLauncher) {
+              JobStep jobStep = new JobStep(jobRepository);
+              jobStep.setJobOperator(jobLauncher);
+              return jobStep;
+          }
       }
     language: java
 ---
@@ -1150,6 +1302,18 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot2.MigrateArtemisProperties
+examples:
+- description: '`MigrateArtemisPropertiesTest#migratesHostAndPortToBrokerUrl`'
+  sources:
+  - before: |
+      spring.artemis.host=myhost
+      spring.artemis.port=1234
+    after: |
+      spring.artemis.broker-url=tcp://myhost:1234
+    language: properties
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot2.MigrateConfigurationPropertiesBindingPostProcessorValidatorBeanName
 examples:
 - description: '`MigrateConfigurationPropertiesBindingPostProcessorValidatorBeanNameTest#updateFieldAccess`'
@@ -1453,7 +1617,7 @@ examples:
       @ContextConfiguration(classes = ExampleClass.ExampleConfiguration.class)
       public class ExampleClass {
           @Configuration
-          static class ExampleConfiguration {
+          public static class ExampleConfiguration {
           }
       }
     after: |
@@ -1465,7 +1629,7 @@ examples:
       @SpringJUnitConfig(classes = ExampleClass.ExampleConfiguration.class)
       public class ExampleClass {
           @Configuration
-          static class ExampleConfiguration {
+          public static class ExampleConfiguration {
           }
       }
     language: java
@@ -1653,6 +1817,66 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot2.UpgradeSpockToGroovy3
+examples:
+- description: '`UpgradeSpockToGroovy3Test#upgradeSpockWhenUsingGroovy3Maven`'
+  sources:
+  - before: |
+      <project>
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>com.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy</artifactId>
+            <version>3.0.9</version>
+          </dependency>
+          <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-core</artifactId>
+            <version>1.3-groovy-2.5</version>
+            <scope>test</scope>
+          </dependency>
+          <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-spring</artifactId>
+            <version>1.3-groovy-2.5</version>
+            <scope>test</scope>
+          </dependency>
+        </dependencies>
+      </project>
+    after: |
+      <project>
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>com.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <dependencies>
+          <dependency>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy</artifactId>
+            <version>3.0.9</version>
+          </dependency>
+          <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-core</artifactId>
+            <version>2.0-groovy-3.0</version>
+            <scope>test</scope>
+          </dependency>
+          <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-spring</artifactId>
+            <version>2.0-groovy-3.0</version>
+            <scope>test</scope>
+          </dependency>
+        </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot2.UpgradeSpringBoot_2_0
 examples:
 - description: '`Boot2UpgradeTest#addJavaxValidationApi`'
@@ -1679,7 +1903,7 @@ examples:
   - before: project
     language: mavenProject
   - before: |
-      <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
         <modelVersion>4.0.0</modelVersion>
         <groupId>org.springframework.samples</groupId>
         <artifactId>spring-petclinic</artifactId>
@@ -1704,7 +1928,7 @@ examples:
         </dependencies>
       </project>
     after: |
-      <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
         <modelVersion>4.0.0</modelVersion>
         <groupId>org.springframework.samples</groupId>
         <artifactId>spring-petclinic</artifactId>
@@ -1758,7 +1982,7 @@ examples:
   - before: project
     language: mavenProject
   - before: |
-      <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
         <modelVersion>4.0.0</modelVersion>
         <groupId>org.springframework.samples</groupId>
         <artifactId>spring-petclinic</artifactId>
@@ -1783,7 +2007,7 @@ examples:
         </dependencies>
       </project>
     after: |
-      <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
         <modelVersion>4.0.0</modelVersion>
         <groupId>org.springframework.samples</groupId>
         <artifactId>spring-petclinic</artifactId>
@@ -1817,40 +2041,6 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot2.UpgradeSpringBoot_2_5
 examples:
-- description: '`Maven#switchArtifactIdAndUpdateVersionNumber`'
-  sources:
-  - before: |
-      <project>
-        <modelVersion>4.0.0</modelVersion>
-        <groupId>com.example</groupId>
-        <artifactId>demo</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
-        <dependencies>
-          <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.30</version>
-            <scope>runtime</scope>
-          </dependency>
-        </dependencies>
-      </project>
-    after: |
-      <project>
-        <modelVersion>4.0.0</modelVersion>
-        <groupId>com.example</groupId>
-        <artifactId>demo</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
-        <dependencies>
-          <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <version>8.0.33</version>
-            <scope>runtime</scope>
-          </dependency>
-        </dependencies>
-      </project>
-    path: pom.xml
-    language: xml
 - description: '`Gradle#switchArtifactIdAndUpdateVersionNumber`'
   sources:
   - before: |
@@ -1885,6 +2075,40 @@ examples:
       }
     path: build.gradle
     language: groovy
+- description: '`Maven#switchArtifactIdAndUpdateVersionNumber`'
+  sources:
+  - before: |
+      <project>
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>com.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <dependencies>
+          <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.30</version>
+            <scope>runtime</scope>
+          </dependency>
+        </dependencies>
+      </project>
+    after: |
+      <project>
+        <modelVersion>4.0.0</modelVersion>
+        <groupId>com.example</groupId>
+        <artifactId>demo</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>8.0.33</version>
+            <scope>runtime</scope>
+          </dependency>
+        </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot2.UpgradeSpringBoot_2_7
@@ -1910,13 +2134,13 @@ examples:
   - before: |
       distributionBase=GRADLE_USER_HOME
       distributionPath=wrapper/dists
-      distributionUrl=https\://services.gradle.org/distributions/gradle-6.7-bin.zip
+      distributionUrl=https\://downloads.gradle.org/distributions/gradle-6.7-bin.zip
       zipStoreBase=GRADLE_USER_HOME
       zipStorePath=wrapper/dists
     after: |
       distributionBase=GRADLE_USER_HOME
       distributionPath=wrapper/dists
-      distributionUrl=https\://services.gradle.org/distributions/gradle-6.9.4-bin.zip
+      distributionUrl=https\://downloads.gradle.org/distributions/gradle-6.9.4-bin.zip
       zipStoreBase=GRADLE_USER_HOME
       zipStorePath=wrapper/dists
       distributionSha256Sum=3e240228538de9f18772a574e99a0ba959e83d6ef351014381acd9631781389a
@@ -1993,8 +2217,7 @@ examples:
     path: application.properties
     language: properties
   - before: |
-      <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-               xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
           <modelVersion>4.0.0</modelVersion>
           <parent>
               <groupId>org.springframework.boot</groupId>
@@ -2124,9 +2347,9 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot3.ConfigurationOverEnableSecurity
 examples:
-- description: '`ConfigurationOverEnableSecurityTest#enableWebSecurity`'
+- description: '`ConfigurationOverEnableSecurityTest#enableWebSecurityForceAdd`'
   parameters:
-  - 'false'
+  - 'true'
   sources:
   - before: |
       import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -2141,9 +2364,9 @@ examples:
       @EnableWebSecurity
       class A {}
     language: java
-- description: '`ConfigurationOverEnableSecurityTest#enableWebSecurityForceAdd`'
+- description: '`ConfigurationOverEnableSecurityTest#enableWebSecurity`'
   parameters:
-  - 'true'
+  - 'false'
   sources:
   - before: |
       import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -2275,7 +2498,7 @@ examples:
     language: java
   - before: project
     language: mavenProject
-  - after: spring.reactor.context-propagation=true
+  - after: spring.reactor.context-propagation=auto
     path: application.properties
     language: properties
 ---
@@ -2447,6 +2670,33 @@ examples:
       public class Application {
       }
     language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot3.RenameLogbackToLogbackSpring
+examples:
+- description: '`RenameLogbackToLogbackSpringTest#renameWhenSpringProfilePresent`'
+  sources:
+  - before: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <configuration>
+        <springProfile name="dev">
+          <logger name="com.example" level="DEBUG"/>
+        </springProfile>
+        <root level="INFO">
+          <appender-ref ref="STDOUT"/>
+        </root>
+      </configuration>
+    after: |
+      <?xml version="1.0" encoding="UTF-8"?>
+      <configuration>
+        <springProfile name="dev">
+          <logger name="com.example" level="DEBUG"/>
+        </springProfile>
+        <root level="INFO">
+          <appender-ref ref="STDOUT"/>
+        </root>
+      </configuration>
+    language: xml
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot3.ReplaceRestTemplateBuilderMethods
@@ -2789,7 +3039,7 @@ examples:
   - before: project
     language: mavenProject
   - before: |
-      <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
         <modelVersion>4.0.0</modelVersion>
         <groupId>org.springframework.samples</groupId>
         <artifactId>spring-petclinic</artifactId>
@@ -2822,7 +3072,7 @@ examples:
         </dependencies>
       </project>
     after: |
-      <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
         <modelVersion>4.0.0</modelVersion>
         <groupId>org.springframework.samples</groupId>
         <artifactId>spring-petclinic</artifactId>
@@ -2870,8 +3120,7 @@ examples:
   - before: project
     language: mavenProject
   - before: |
-      <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-               xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+      <project>
           <modelVersion>4.0.0</modelVersion>
           <groupId>com.example</groupId>
           <artifactId>fooservice</artifactId>
@@ -2950,6 +3199,78 @@ examples:
     language: xml
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot4.AddAutoConfigureTestRestTemplate
+examples:
+- description: '`AddAutoConfigureTestRestTemplateTest#shouldAddAnnotationIfTypeIsUsed`'
+  sources:
+  - before: |
+      import org.springframework.boot.resttestclient.TestRestTemplate;
+      import org.springframework.boot.test.context.SpringBootTest;
+
+      @SpringBootTest
+      class ExampleTest {
+          TestRestTemplate testRestTemplate;
+      }
+    after: |
+      import org.springframework.boot.resttestclient.TestRestTemplate;
+      import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureTestRestTemplate;
+      import org.springframework.boot.test.context.SpringBootTest;
+
+      @AutoConfigureTestRestTemplate
+      @SpringBootTest
+      class ExampleTest {
+          TestRestTemplate testRestTemplate;
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot4.AddAutoConfigureWebTestClient
+examples:
+- description: '`AddAutoConfigureWebTestClientTest#shouldAddAnnotationIfTypeIsUsed`'
+  sources:
+  - before: |
+      import org.springframework.boot.test.context.SpringBootTest;
+      import org.springframework.test.web.reactive.server.WebTestClient;
+
+      @SpringBootTest
+      class ExampleTest {
+          WebTestClient webTestClient;
+      }
+    after: |
+      import org.springframework.boot.test.context.SpringBootTest;
+      import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTestClient;
+      import org.springframework.test.web.reactive.server.WebTestClient;
+
+      @AutoConfigureWebTestClient
+      @SpringBootTest
+      class ExampleTest {
+          WebTestClient webTestClient;
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot4.MigrateToModularStarters
+examples:
+- description: '`MigrateToModularStartersTest#migrateLiquibaseToStarterInMaven`'
+  sources:
+  - before: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>org.example</groupId>
+          <artifactId>example</artifactId>
+          <version>1.0-SNAPSHOT</version>
+          <dependencies>
+              <dependency>
+                  <groupId>org.liquibase</groupId>
+                  <artifactId>liquibase-core</artifactId>
+                  <version>4.24.0</version>
+              </dependency>
+          </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.boot4.ReplaceMockBeanAndSpyBean
 examples:
 - description: '`ReplaceMockBeanAndSpyBeanTest#replacesMockBeanWithMockitoBean`'
@@ -2971,6 +3292,52 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot4.SpringBootProperties_4_0
+examples:
+- description: '`UpgradeSpringBoot40ConfigurationTest#updateHibernateNaminImplicitStrategy`'
+  sources:
+  - before: test
+    language: mavenProject
+  - before: |
+      # application.properties
+      spring.jpa.hibernate.naming.implicit-strategy=org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+    after: |
+      # application.properties
+      spring.jpa.hibernate.naming.implicit-strategy=org.springframework.boot.hibernate.SpringImplicitNamingStrategy
+    language: properties
+  - before: |
+      ---
+      spring.jpa.hibernate.naming.implicit-strategy: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+    after: |
+      ---
+      spring.jpa.hibernate.naming.implicit-strategy: org.springframework.boot.hibernate.SpringImplicitNamingStrategy
+    language: yaml
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.boot4.UnwrapMockAndSpyBeanContainers
+examples:
+- description: '`UnwrapMockAndSpyBeanContainersTest#mergesMockBeansContainer`'
+  sources:
+  - before: |
+      import org.springframework.boot.test.mock.mockito.MockBean;
+      import org.springframework.boot.test.mock.mockito.MockBeans;
+
+      @MockBeans({@MockBean(Foo.class), @MockBean(Bar.class)})
+      class SomeTest {
+      }
+      class Foo {}
+      class Bar {}
+    after: |
+      import org.springframework.boot.test.mock.mockito.MockBean;
+
+      @MockBean(types = {Foo.class, Bar.class})
+      class SomeTest {
+      }
+      class Foo {}
+      class Bar {}
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.cloud2022.AddLoggingPatternLevelForSleuth
 examples:
 - description: '`AddLoggingPatternLevelForSleuthTest#addLoggingPatternWhenUsingSleuth`'
@@ -2985,8 +3352,7 @@ examples:
     path: src/main/resources/application.properties
     language: properties
   - before: |2
-          <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-               xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+          <project>
           <modelVersion>4.0.0</modelVersion>
           <groupId>com.example</groupId>
           <artifactId>explicit-deps-app</artifactId>
@@ -3125,6 +3491,40 @@ examples:
     language: xml
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.cloud2025.UpgradeSpringCloud_2025_1
+examples:
+- description: '`UpgradeSpringCloud2025_1Test#upgradeSpringCloudBomFrom2025_0To2025_1`'
+  sources:
+  - before: project
+    language: mavenProject
+  - before: |
+      <project>
+          <modelVersion>4.0.0</modelVersion>
+          <groupId>com.example</groupId>
+          <artifactId>fooservice</artifactId>
+          <version>1.0-SNAPSHOT</version>
+          <dependencyManagement>
+              <dependencies>
+                  <dependency>
+                      <groupId>org.springframework.cloud</groupId>
+                      <artifactId>spring-cloud-dependencies</artifactId>
+                      <version>2025.0.1</version>
+                      <type>pom</type>
+                      <scope>import</scope>
+                  </dependency>
+              </dependencies>
+          </dependencyManagement>
+          <dependencies>
+              <dependency>
+                  <groupId>org.springframework.cloud</groupId>
+                  <artifactId>spring-cloud-starter-config</artifactId>
+              </dependency>
+          </dependencies>
+      </project>
+    path: pom.xml
+    language: xml
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.data.JdbcTemplateQueryForLongMigration
 examples:
 - description: '`JdbcTemplateQueryForLongMigrationTest#simpleTransformation`'
@@ -3204,6 +3604,29 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.data.MigratePagingAndSortingRepository
+examples:
+- description: '`MigratePagingAndSortingRepositoryTest#addsCrudRepositoryWhenOnlyPagingAndSorting`'
+  sources:
+  - before: |
+      import org.springframework.data.repository.PagingAndSortingRepository;
+
+      public interface UserRepository extends PagingAndSortingRepository<User, Long> {
+      }
+    after: |
+      import org.springframework.data.repository.CrudRepository;
+      import org.springframework.data.repository.PagingAndSortingRepository;
+
+      public interface UserRepository extends PagingAndSortingRepository<User, Long>, CrudRepository<User, Long> {
+      }
+    language: java
+  - before: |
+      public class User {
+          private Long id;
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.data.MigrateQueryToNativeQuery
 examples:
 - description: '`MigrateQueryToNativeQueryTest#nativeQueryToBeMigrated`'
@@ -3260,6 +3683,29 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.data.MigrateRepositoryRestConfigurerAdapter
+examples:
+- description: '`MigrateRepositoryRestConfigurerAdapterTest#transformSimple`'
+  sources:
+  - before: |
+      import org.springframework.context.annotation.Configuration;
+      import org.springframework.data.rest.webmvc.config.RepositoryRestConfigurerAdapter;
+
+      @Configuration
+      public class CatalogDbRepositoryConfiguration extends RepositoryRestConfigurerAdapter {
+
+      }
+    after: |
+      import org.springframework.context.annotation.Configuration;
+      import org.springframework.data.rest.webmvc.config.RepositoryRestConfigurer;
+
+      @Configuration
+      public class CatalogDbRepositoryConfiguration implements RepositoryRestConfigurer {
+
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.data.UpgradeSpringData_2_3
 examples:
 - description: '`RefactorSimpleMongoDbFactoryTest#constructorWithAttribute`'
@@ -3286,7 +3732,7 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
-recipeName: org.openrewrite.java.spring.data.UseJpaRepositoryGetReferenceById
+recipeName: org.openrewrite.java.spring.data.UpgradeSpringData_2_7
 examples:
 - description: '`UseJpaRepositoryGetReferenceByIdTest#matchAndUpdateReferences`'
   sources:
@@ -3426,9 +3872,51 @@ examples:
           path: /v3/api-docs
         swagger-ui:
           path: /swagger-ui.html
-        paths-to-match: "/**"
+        paths-to-match: /**
     path: application.yaml
     language: yaml
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.doc.MigrateSpringFoxSecurityConfiguration
+examples:
+- description: '`MigrateSpringFoxSecurityConfigurationTest#enableCsrfSupportToProperty`'
+  sources:
+  - before: |
+      package com.example;
+
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.context.annotation.Configuration;
+      import springfox.documentation.swagger.web.SecurityConfiguration;
+      import springfox.documentation.swagger.web.SecurityConfigurationBuilder;
+
+      @Configuration
+      public class SwaggerConfig {
+
+          @Bean
+          SecurityConfiguration security() {
+              return SecurityConfigurationBuilder.builder()
+                      .enableCsrfSupport(true)
+                      .build();
+          }
+      }
+    after: |
+      package com.example;
+
+      import org.springframework.context.annotation.Configuration;
+
+      @Configuration
+      public class SwaggerConfig {
+      }
+    language: java
+  - before: project
+    language: mavenProject
+  - before: |
+      spring.application.name=demo
+    after: |
+      spring.application.name=demo
+      springdoc.swagger-ui.csrf.enabled=true
+    path: application.properties
+    language: properties
 ---
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.doc.RemoveBeanValidatorPluginsConfiguration
@@ -3549,7 +4037,8 @@ examples:
               return new DataSource();
           }
 
-          @Bean // comments
+          @Bean
+          // comments
           static DataSource dataSource3() {
               return new DataSource();
           }
@@ -3580,6 +4069,32 @@ examples:
       class Test {
           static boolean method(Environment env) {
               return env.acceptsProfiles(Profiles.of("production"));
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.framework.HttpComponentsClientHttpRequestFactoryConnectTimeout
+examples:
+- description: '`HttpComponentsClientHttpRequestFactoryConnectTimeoutTest#addsCommentWhenNoPoolingHttpClientConnectionManager`'
+  sources:
+  - before: |
+      import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+
+      class Example {
+          void configure() {
+              HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+              factory.setConnectTimeout(5000);
+          }
+      }
+    after: |
+      import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+
+      class Example {
+          void configure() {
+              HttpComponentsClientHttpRequestFactory factory = new HttpComponentsClientHttpRequestFactory();
+              // Manual migration to `ConnectionConfig.Builder.setConnectTimeout(Timeout)` necessary; see: https://github.com/spring-projects/spring-framework/issues/35748
+              factory.setConnectTimeout(5000);
           }
       }
     language: java
@@ -3652,20 +4167,16 @@ examples:
       import org.springframework.jdbc.core.JdbcTemplate;
       import java.util.List;
 
-      public class MyDao {
+      class MyDao {
 
-          final JdbcTemplate jdbcTemplate;
+          JdbcTemplate jdbcTemplate;
 
-          public MyDao(JdbcTemplate jdbcTemplate) {
-              this.jdbcTemplate = jdbcTemplate;
-          }
-
-          public User getUser(String first, String last) {
+          User getUser(String first, String last) {
               Object[] args = new Object[]{first, last};
               return jdbcTemplate.queryForObject("select NAME, AGE from USER where FIRST = ? && LAST = ?", args, User.class);
           }
 
-          public User getUser2(String first, String last) {
+          User getUser2(String first, String last) {
               Object[] args = new Object[]{first, last};
                return jdbcTemplate.queryForObject("", args, (resultSet, i) -> {
                   User user = new User();
@@ -3680,20 +4191,16 @@ examples:
       import org.springframework.jdbc.core.JdbcTemplate;
       import java.util.List;
 
-      public class MyDao {
+      class MyDao {
 
-          final JdbcTemplate jdbcTemplate;
+          JdbcTemplate jdbcTemplate;
 
-          public MyDao(JdbcTemplate jdbcTemplate) {
-              this.jdbcTemplate = jdbcTemplate;
-          }
-
-          public User getUser(String first, String last) {
+          User getUser(String first, String last) {
               Object[] args = new Object[]{first, last};
               return jdbcTemplate.queryForObject("select NAME, AGE from USER where FIRST = ? && LAST = ?", User.class, args);
           }
 
-          public User getUser2(String first, String last) {
+          User getUser2(String first, String last) {
               Object[] args = new Object[]{first, last};
                return jdbcTemplate.queryForObject("", (resultSet, i) -> {
                   User user = new User();
@@ -4166,6 +4673,29 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.framework.UseObjectUtilsIsEmpty
+examples:
+- description: '`UseObjectUtilsIsEmptyTest#replacesForStringArgument`'
+  sources:
+  - before: |
+      import org.springframework.util.StringUtils;
+
+      class A {
+          boolean test(String s) {
+              return StringUtils.isEmpty(s);
+          }
+      }
+    after: |
+      import org.springframework.util.ObjectUtils;
+
+      class A {
+          boolean test(String s) {
+              return ObjectUtils.isEmpty(s);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.http.SimplifyWebTestClientCalls
 examples:
 - description: '`SimplifyWebTestClientCallsTest#replaceKotlinInt`'
@@ -4231,6 +4761,65 @@ examples:
               KafkaTestUtils.getRecords(consumer, Duration.ofMillis(1000L), 1);
               KafkaTestUtils.getSingleRecord(consumer, "topic", Duration.ofMillis(1000L));
               KafkaTestUtils.getOneRecord("topic", "key", "value", 1, true, true, Duration.ofMillis(1000L));
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.kafka.UpgradeSpringKafka_2_8_ErrorHandlers
+examples:
+- description: '`UpgradeSpringKafkaErrorHandlersTest#migratesSeekToCurrentErrorHandler`'
+  sources:
+  - before: |
+      import java.lang.Exception;
+      import java.util.List;
+
+      import org.apache.kafka.clients.consumer.Consumer;
+      import org.apache.kafka.clients.consumer.ConsumerRecord;
+      import org.springframework.kafka.config.AbstractKafkaListenerContainerFactory;
+      import org.springframework.kafka.listener.MessageListenerContainer;
+      import org.springframework.kafka.listener.SeekToCurrentErrorHandler;
+
+      class A {
+          private final SeekToCurrentErrorHandler handler = new SeekToCurrentErrorHandler();
+
+          void method(AbstractKafkaListenerContainerFactory factory) {
+              factory.setErrorHandler(handler);
+          }
+
+          void anotherMethod(
+            Exception exception,
+            List<ConsumerRecord<?,?>> records,
+            Consumer<?,?> consumer,
+            MessageListenerContainer container
+          ) {
+              handler.handle(exception, records, consumer, container);
+          }
+      }
+    after: |
+      import java.lang.Exception;
+      import java.util.List;
+
+      import org.apache.kafka.clients.consumer.Consumer;
+      import org.apache.kafka.clients.consumer.ConsumerRecord;
+      import org.springframework.kafka.config.AbstractKafkaListenerContainerFactory;
+      import org.springframework.kafka.listener.DefaultErrorHandler;
+      import org.springframework.kafka.listener.MessageListenerContainer;
+
+      class A {
+          private final DefaultErrorHandler handler = new DefaultErrorHandler();
+
+          void method(AbstractKafkaListenerContainerFactory factory) {
+              factory.setCommonErrorHandler(handler);
+          }
+
+          void anotherMethod(
+            Exception exception,
+            List<ConsumerRecord<?,?>> records,
+            Consumer<?,?> consumer,
+            MessageListenerContainer container
+          ) {
+              handler.handleRemaining(exception, records, consumer, container);
           }
       }
     language: java
@@ -4305,6 +4894,319 @@ examples:
           void bar(KafkaOperations<String, String> kafkaOperations) {
               KafkaOperations<String, String> k2 = kafkaOperations;
           }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.kafka.UpgradeSpringKafka_4_0
+examples:
+- description: '`UpgradeSpringKafka40Test#migrateJackson2ToJackson3`'
+  sources:
+  - before: |
+      import org.springframework.kafka.support.*;
+      import org.springframework.kafka.support.converter.*;
+      import org.springframework.kafka.support.mapping.*;
+      import org.springframework.kafka.support.serializer.*;
+
+      class Test {
+          DefaultKafkaHeaderMapper mapper = new DefaultKafkaHeaderMapper();
+          JsonMessageConverter converter = new JsonMessageConverter();
+          ProjectingMessageConverter projectingConverter = new ProjectingMessageConverter();
+          ByteArrayJsonMessageConverter byteArrayJsonMessageConverter = new ByteArrayJsonMessageConverter();
+          BytesJsonMessageConverter bytesJsonMessageConverter = new BytesJsonMessageConverter();
+          StringJsonMessageConverter stringJsonMessageConverter = new StringJsonMessageConverter();
+          DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+          JsonDeserializer<String> deserializer = new JsonDeserializer<>();
+          JsonSerde<String> serde = new JsonSerde<>();
+          JsonSerializer<String> serializer = new JsonSerializer<>();
+      }
+    after: |
+      import org.springframework.kafka.support.*;
+      import org.springframework.kafka.support.converter.*;
+      import org.springframework.kafka.support.mapping.*;
+      import org.springframework.kafka.support.serializer.*;
+
+      class Test {
+          JsonKafkaHeaderMapper mapper = new JsonKafkaHeaderMapper();
+          JacksonJsonMessageConverter converter = new JacksonJsonMessageConverter();
+          JacksonProjectingMessageConverter projectingConverter = new JacksonProjectingMessageConverter();
+          ByteArrayJacksonJsonMessageConverter byteArrayJsonMessageConverter = new ByteArrayJacksonJsonMessageConverter();
+          BytesJacksonJsonMessageConverter bytesJsonMessageConverter = new BytesJacksonJsonMessageConverter();
+          StringJacksonJsonMessageConverter stringJsonMessageConverter = new StringJacksonJsonMessageConverter();
+          DefaultJacksonJavaTypeMapper typeMapper = new DefaultJacksonJavaTypeMapper();
+          JacksonJsonDeserializer<String> deserializer = new JacksonJsonDeserializer<>();
+          JacksonJsonSerde<String> serde = new JacksonJsonSerde<>();
+          JacksonJsonSerializer<String> serializer = new JacksonJsonSerializer<>();
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.mvc.JaxrsToSpringMvcMediaType
+examples:
+- description: '`JaxrsToSpringMvcMediaTypeTest#migrateMediaTypeJavaxTest`'
+  sources:
+  - before: |
+      import javax.ws.rs.core.MediaType;
+      import javax.ws.rs.Produces;
+
+      class TestExample {
+
+          @Produces(MediaType.APPLICATION_JSON)
+          void updateUser() {}
+
+          String getJsonType() {
+              return MediaType.APPLICATION_JSON;
+          }
+
+          MediaType getFormType() {
+              return MediaType.APPLICATION_FORM_URLENCODED_TYPE;
+          }
+      }
+    after: |
+      import org.springframework.http.MediaType;
+
+      import javax.ws.rs.Produces;
+
+      class TestExample {
+
+          @Produces(MediaType.APPLICATION_JSON_VALUE)
+          void updateUser() {}
+
+          String getJsonType() {
+              return MediaType.APPLICATION_JSON_VALUE;
+          }
+
+          MediaType getFormType() {
+              return MediaType.APPLICATION_FORM_URLENCODED;
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.mvc.JaxrsToSpringMvcResponseEntity
+examples:
+- description: '`JaxrsToSpringMvcResponseEntityTest#migrateResponseJavaxTest`'
+  sources:
+  - before: |
+      import javax.ws.rs.core.HttpHeaders;
+      import javax.ws.rs.core.MediaType;
+      import javax.ws.rs.core.Response;
+      import javax.ws.rs.core.Response.Status;
+
+      class TestExample {
+
+          class TestResponse {
+              private String message;
+
+              TestResponse(String message) {
+                  this.message = message;
+              }
+
+              String getMessage() {
+                  return message;
+              }
+          }
+
+          Response test0() {
+              return Response.ok().build();
+          }
+
+          Response test1() {
+              return Response.ok("Test Response").build();
+          }
+
+          Response test2() {
+              TestResponse response = new TestResponse("Test Response");
+              return Response.ok().entity(response).build();
+          }
+
+          Response test3() {
+              return Response.ok().entity("Test Response").header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).build();
+          }
+
+          Response test4() {
+              TestResponse response = new TestResponse("Test Response");
+              return Response.ok().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).entity(response).build();
+          }
+
+          Response test5() {
+              return Response.status(Response.Status.UNAUTHORIZED).build();
+          }
+
+          Response test6() {
+              return Response.status(Response.Status.CREATED).entity("Test Response").build();
+          }
+
+          Response test7() {
+              TestResponse response = new TestResponse("Test Response");
+              return Response.status(Status.NOT_FOUND).entity(response).build();
+          }
+
+          Response test8() {
+              return Response.status(Status.BAD_GATEWAY).header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).entity("Test Response").build();
+          }
+
+          Response test9() {
+              return Response.serverError().entity("Test Response").header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).build();
+          }
+
+          Response test10() {
+              return Response.noContent().build();
+          }
+
+          Response.ResponseBuilder test11() {
+              return Response.ok().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+          }
+
+      }
+    after: |
+      import javax.ws.rs.core.HttpHeaders;
+      import javax.ws.rs.core.MediaType;
+      import org.springframework.http.HttpStatus;
+      import org.springframework.http.ResponseEntity;
+      import org.springframework.http.ResponseEntity.BodyBuilder;
+
+      class TestExample {
+
+          class TestResponse {
+              private String message;
+
+              TestResponse(String message) {
+                  this.message = message;
+              }
+
+              String getMessage() {
+                  return message;
+              }
+          }
+
+          ResponseEntity test0() {
+              return ResponseEntity.ok().build();
+          }
+
+          ResponseEntity test1() {
+              return ResponseEntity.ok("Test Response");
+          }
+
+          ResponseEntity test2() {
+              TestResponse response = new TestResponse("Test Response");
+              return ResponseEntity.ok().body(response);
+          }
+
+          ResponseEntity test3() {
+              return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).body("Test Response");
+          }
+
+          ResponseEntity test4() {
+              TestResponse response = new TestResponse("Test Response");
+              return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).body(response);
+          }
+
+          ResponseEntity test5() {
+              return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+          }
+
+          ResponseEntity test6() {
+              return ResponseEntity.status(HttpStatus.CREATED).body("Test Response");
+          }
+
+          ResponseEntity test7() {
+              TestResponse response = new TestResponse("Test Response");
+              return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+          }
+
+          ResponseEntity test8() {
+              return ResponseEntity.status(HttpStatus.BAD_GATEWAY).header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).body("Test Response");
+          }
+
+          ResponseEntity test9() {
+              return ResponseEntity.internalServerError().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON).body("Test Response");
+          }
+
+          ResponseEntity test10() {
+              return ResponseEntity.noContent().build();
+          }
+
+          BodyBuilder test11() {
+              return ResponseEntity.ok().header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON);
+          }
+
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.opentelemetry.MigrateDatadogToOpenTelemetry
+examples:
+- description: '`MigrateDatadogToOpenTelemetryTest#migrateDatadogTracer`'
+  sources:
+  - before: |
+      import datadog.trace.api.Tracer;
+
+      class TracingService {
+          Tracer tracer;
+      }
+    after: |
+      import io.opentelemetry.api.trace.Tracer;
+
+      class TracingService {
+          Tracer tracer;
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.opentelemetry.MigrateOpenTracingToOpenTelemetry
+examples:
+- description: '`MigrateOpenTracingToOpenTelemetryTest#migrateTracer`'
+  sources:
+  - before: |
+      import io.opentracing.Tracer;
+
+      class OpenTracingService {
+          Tracer tracer;
+      }
+    after: |
+      import io.opentelemetry.api.trace.Tracer;
+
+      class OpenTracingService {
+          Tracer tracer;
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.opentelemetry.MigrateSleuthToOpenTelemetry
+examples:
+- description: '`MigrateSleuthAnnotationsToOpenTelemetryTest#migrateNewSpanToWithSpan`'
+  sources:
+  - before: |
+      import org.springframework.cloud.sleuth.annotation.NewSpan;
+
+      class TracedService {
+          @NewSpan
+          public void tracedMethod() {
+          }
+      }
+    after: |
+      import io.opentelemetry.instrumentation.annotations.WithSpan;
+
+      class TracedService {
+          @WithSpan
+          public void tracedMethod() {
+          }
+      }
+    language: java
+- description: '`MigrateSleuthApiToMicrometerTracingTest#migrateTracerImport`'
+  sources:
+  - before: |
+      import org.springframework.cloud.sleuth.Tracer;
+
+      class TracingService {
+          Tracer tracer;
+      }
+    after: |
+      import io.micrometer.tracing.Tracer;
+
+      class TracingService {
+          Tracer tracer;
       }
     language: java
 ---
@@ -4428,6 +5330,63 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.search.FindSpringComponents
+examples:
+- description: '`FindSpringComponentsTest#findSpringComponents`'
+  sources:
+  - before: |
+      package test;
+
+      class A {
+          public A(B b) {}
+      }
+    language: java
+  - before: |
+      package test;
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.context.annotation.Configuration;
+
+      @Configuration
+      class Config {
+          @Bean
+          A a(B b) {
+              return new A(b);
+          }
+      }
+    after: |
+      package test;
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.context.annotation.Configuration;
+
+      @Configuration
+      class Config {
+          /*~~(bean)~~>*/@Bean
+          A a(B b) {
+              return new A(b);
+          }
+      }
+    language: java
+  - before: |
+      package test;
+      import org.springframework.stereotype.Component;
+
+      @Component
+      class C {
+          public C(B b) {}
+      }
+    after: |
+      package test;
+      import org.springframework.stereotype.Component;
+
+      /*~~(component)~~>*/@Component
+      class C {
+          public C(B b) {}
+      }
+    language: java
+  - before: package test; public class B {}
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.security5.AuthorizeHttpRequests
 examples:
 - description: '`AuthorizeHttpRequestsTest#noArgAuthorizeRequests`'
@@ -4474,6 +5433,45 @@ examples:
                       .permitAll()
                       .and()
                   .rememberMe();
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.security5.ConvertSecurityMatchersToSecurityMatcher
+examples:
+- description: '`ConvertSecurityMatchersToSecurityMatcherTest#requestMatchersAntMatchersToSecurityMatcher`'
+  sources:
+  - before: |
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.context.annotation.Configuration;
+      import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+      import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+      import org.springframework.security.web.SecurityFilterChain;
+
+      @Configuration
+      @EnableWebSecurity
+      class SecurityConfig {
+          @Bean
+          SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+              http.requestMatchers().antMatchers("/oidc/*", "/events/syncs**");
+              return http.build();
+          }
+      }
+    after: |
+      import org.springframework.context.annotation.Bean;
+      import org.springframework.context.annotation.Configuration;
+      import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+      import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+      import org.springframework.security.web.SecurityFilterChain;
+
+      @Configuration
+      @EnableWebSecurity
+      class SecurityConfig {
+          @Bean
+          SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+              http.securityMatcher("/oidc/*", "/events/syncs**");
+              return http.build();
           }
       }
     language: java
@@ -5266,6 +6264,31 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.spring.security7.UpgradeSpringSecurity_7_0
+examples:
+- description: '`UpgradeSpringSecurity70Test#migrateAuthorizationManagerCheckToAuthorize`'
+  sources:
+  - before: |
+      import org.springframework.security.authorization.AuthorizationManager;
+      import org.springframework.security.authorization.AuthorizationDecision;
+
+      class MyAuthz {
+          void test(AuthorizationManager<Object> manager) {
+              AuthorizationDecision decision = manager.check(null, null);
+          }
+      }
+    after: |
+      import org.springframework.security.authorization.AuthorizationManager;
+      import org.springframework.security.authorization.AuthorizationDecision;
+
+      class MyAuthz {
+          void test(AuthorizationManager<Object> manager) {
+              AuthorizationDecision decision = manager.authorize(null, null);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.spring.test.SpringRulesToJUnitExtension
 examples:
 - description: '`SpringRulesToJUnitExtensionTest#migrateWithSpringBootTestPresent`'
@@ -5296,6 +6319,31 @@ examples:
       @SpringBootTest
       class SomeTest {
 
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.springdoc.CleanupRemainingSpringfox
+examples:
+- description: '`CleanupRemainingSpringfoxTest#removeOrphanedPrivateMethodsWithSpringfoxTypes`'
+  sources:
+  - before: |
+      import springfox.documentation.service.ApiInfo;
+
+      class SwaggerConfig {
+
+          public void publicMethod() {
+          }
+
+          private ApiInfo appInfo() {
+              return new ApiInfo("My API", "Description", "1.0", "", "", "", "");
+          }
+      }
+    after: |
+      class SwaggerConfig {
+
+          public void publicMethod() {
+          }
       }
     language: java
 ---
@@ -5349,6 +6397,35 @@ examples:
     language: java
 ---
 type: specs.openrewrite.org/v1beta/example
+recipeName: org.openrewrite.java.springdoc.SpringFoxToSpringDoc
+examples:
+- description: '`SpringFoxToSpringDocJsonTypesTest#addTodoCommentToJsonSerializerConstructor`'
+  sources:
+  - before: |
+      import springfox.documentation.spring.web.json.JacksonModuleRegistrar;
+      import springfox.documentation.spring.web.json.JsonSerializer;
+      import java.util.List;
+
+      class SwaggerConfig {
+
+          public JsonSerializer jsonSerializer(List<JacksonModuleRegistrar> registrars) {
+              return new JsonSerializer(registrars);
+          }
+      }
+    after: |
+      import springfox.documentation.spring.web.json.JacksonModuleRegistrar;
+      import springfox.documentation.spring.web.json.JsonSerializer;
+      import java.util.List;
+
+      class SwaggerConfig {
+
+          public JsonSerializer jsonSerializer(List<JacksonModuleRegistrar> registrars) {
+              return /* TODO: springfox.documentation.spring.web.json types have no SpringDoc equivalent. Remove this Springfox-internal code and use Jackson ObjectMapper directly if JSON serialization is still needed. See https://springdoc.org/migrating-from-springfox.html for guidance. */ new JsonSerializer(registrars);
+          }
+      }
+    language: java
+---
+type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.java.springdoc.UpgradeSpringDoc_2
 examples:
 - description: '`UpgradeSpringDoc2Test#upgradeMaven`'
@@ -5378,13 +6455,14 @@ examples:
 type: specs.openrewrite.org/v1beta/example
 recipeName: org.openrewrite.maven.spring.UpgradeExplicitSpringBootDependencies
 examples:
-- description: '`UpgradeExplicitSpringBootDependenciesTest#shouldBuildCorrectPomModelAfterUpdateTo3x`'
+- description: '`UpgradeExplicitSpringBootDependenciesTest#shouldUpdateExplicitDependenciesTo30`'
   parameters:
   - 2.7.X
   - 3.0.0
   sources:
   - before: |
       <project>
+          <modelVersion>4.0.0</modelVersion>
           <groupId>com.example</groupId>
           <artifactId>explicit-deps-app</artifactId>
           <version>0.0.1-SNAPSHOT</version>
@@ -5393,6 +6471,11 @@ examples:
                   <groupId>org.springframework.boot</groupId>
                   <artifactId>spring-boot-starter-web</artifactId>
                   <version>2.7.3</version>
+              </dependency>
+              <dependency>
+                  <groupId>io.dropwizard.metrics</groupId>
+                  <artifactId>metrics-annotation</artifactId>
+                  <version>4.2.8</version>
               </dependency>
               <dependency>
                   <groupId>org.springframework.boot</groupId>
@@ -5404,6 +6487,7 @@ examples:
       </project>
     after: |
       <project>
+          <modelVersion>4.0.0</modelVersion>
           <groupId>com.example</groupId>
           <artifactId>explicit-deps-app</artifactId>
           <version>0.0.1-SNAPSHOT</version>
@@ -5412,6 +6496,11 @@ examples:
                   <groupId>org.springframework.boot</groupId>
                   <artifactId>spring-boot-starter-web</artifactId>
                   <version>3.0.0</version>
+              </dependency>
+              <dependency>
+                  <groupId>io.dropwizard.metrics</groupId>
+                  <artifactId>metrics-annotation</artifactId>
+                  <version>4.2.13</version>
               </dependency>
               <dependency>
                   <groupId>org.springframework.boot</groupId>

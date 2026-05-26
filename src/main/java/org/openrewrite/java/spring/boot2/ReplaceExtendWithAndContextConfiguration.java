@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -37,21 +38,15 @@ public class ReplaceExtendWithAndContextConfiguration extends Recipe {
     private static final String FQN_CONTEXT_CONFIGURATION = "org.springframework.test.context.ContextConfiguration";
     private static final String FQN_SPRING_JUNIT_CONFIG = "org.springframework.test.context.junit.jupiter.SpringJUnitConfig";
 
-    @Override
-    public String getDisplayName() {
-        return "Replace `@ExtendWith` and `@ContextConfiguration` with `@SpringJunitConfig`";
-    }
+    @Getter
+    final String displayName = "Replace `@ExtendWith` and `@ContextConfiguration` with `@SpringJunitConfig`";
 
-    @Override
-    public String getDescription() {
-        return "Replaces `@ExtendWith(SpringRunner.class)` and `@ContextConfiguration` with `@SpringJunitConfig`, " +
-                "preserving attributes on `@ContextConfiguration`, unless `@ContextConfiguration(loader = ...)` is used.";
-    }
+    @Getter
+    final String description = "Replaces `@ExtendWith(SpringRunner.class)` and `@ContextConfiguration` with `@SpringJunitConfig`, " +
+            "preserving attributes on `@ContextConfiguration`, unless `@ContextConfiguration(loader = ...)` is used.";
 
-    @Override
-    public Duration getEstimatedEffortPerOccurrence() {
-        return Duration.ofMinutes(2);
-    }
+    @Getter
+    final Duration estimatedEffortPerOccurrence = Duration.ofMinutes(2);
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -120,12 +115,12 @@ public class ReplaceExtendWithAndContextConfiguration extends Recipe {
 
                     private J.Assignment createLocationsAssignment(J.Annotation annotation, Expression value) {
                         return (J.Assignment) ((J.Annotation)
-                            JavaTemplate.builder("locations = #{any(String)}")
-                                .contextSensitive().build().apply(
-                                    getCursor(),
-                                    annotation.getCoordinates().replaceArguments(),
-                                    value
-                                )).getArguments().get(0);
+                                JavaTemplate.builder("locations = #{any(String)}")
+                                        .contextSensitive().build().apply(
+                                                getCursor(),
+                                                annotation.getCoordinates().replaceArguments(),
+                                                value
+                                        )).getArguments().get(0);
                     }
                 });
     }

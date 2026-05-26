@@ -20,11 +20,13 @@ import lombok.Value;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
+import org.openrewrite.internal.StringUtils;
 import org.openrewrite.java.AnnotationMatcher;
 import org.openrewrite.java.JavaIsoVisitor;
 import org.openrewrite.java.search.UsesType;
 import org.openrewrite.java.tree.J;
 import org.openrewrite.java.tree.JavaSourceFile;
+import org.openrewrite.kotlin.tree.K;
 import org.openrewrite.properties.search.FindProperties;
 import org.openrewrite.properties.tree.Properties;
 import org.openrewrite.yaml.ChangePropertyKey;
@@ -44,15 +46,9 @@ import static java.util.regex.Pattern.quote;
 @Value
 public class ChangeSpringPropertyKey extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Change the key of a Spring application property";
-    }
+    String displayName = "Change the key of a Spring application property";
 
-    @Override
-    public String getDescription() {
-        return "Change Spring application property keys existing in either Properties or YAML files, and in `@Value` annotations.";
-    }
+    String description = "Change Spring application property keys existing in either Properties or YAML files, and in `@Value`, `@ConditionalOnProperty` or `@SpringBootTest` annotations.";
 
     @Option(displayName = "Old property key",
             description = "The property key to rename.",
@@ -83,7 +79,8 @@ public class ChangeSpringPropertyKey extends Recipe {
         return Preconditions.check(Preconditions.or(
                 new IsPossibleSpringConfigFile(),
                 new UsesType<>("org.springframework.beans.factory.annotation.Value", false),
-                new UsesType<>("org.springframework.boot.autoconfigure.condition.ConditionalOnProperty", false)
+                new UsesType<>("org.springframework.boot.autoconfigure.condition.ConditionalOnProperty", false),
+                new UsesType<>("org.springframework.boot..*Test", false)
         ), new TreeVisitor<Tree, ExecutionContext>() {
             @Override
             public @Nullable Tree visit(@Nullable Tree tree, ExecutionContext ctx) {
@@ -117,6 +114,8 @@ public class ChangeSpringPropertyKey extends Recipe {
                 new AnnotationMatcher("@org.springframework.beans.factory.annotation.Value");
         private final AnnotationMatcher CONDITIONAL_ON_PROPERTY_MATCHER =
                 new AnnotationMatcher("@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty");
+        private final AnnotationMatcher SPRING_BOOT_TEST_MATCHER =
+                new AnnotationMatcher("@org.springframework.boot..*Test");
 
         @Override
         public J.Annotation visitAnnotation(J.Annotation annotation, ExecutionContext ctx) {
@@ -130,6 +129,9 @@ public class ChangeSpringPropertyKey extends Recipe {
                             if (literal.getValue() instanceof String) {
                                 String value = (String) literal.getValue();
                                 if (value.contains(oldPropertyKey)) {
+                                    if (newPropertyKey.contains(oldPropertyKey) && value.contains(newPropertyKey)) {
+                                        return arg;
+                                    }
                                     Pattern pattern = Pattern.compile("\\$\\{(" + quote(oldPropertyKey) + exceptRegex() + "(?:\\.[^.}:]+)*)(((?:\\\\.|[^}])*)\\})");
                                     Matcher matcher = pattern.matcher(value);
                                     int idx = 0;
@@ -154,8 +156,17 @@ public class ChangeSpringPropertyKey extends Recipe {
                                                     }
                                                 }
                                             }
-                                            arg = literal.withValue(newValue)
-                                                    .withValueSource("\"" + newValue.replace("\\", "\\\\") + "\"");
+                                            int leadingBackslashes = 0;
+                                            for (int i = 0; i < newValue.length(); i++) {
+                                                if (newValue.charAt(i) == '\\') {
+                                                    leadingBackslashes++;
+                                                } else {
+                                                    break;
+                                                }
+                                            }
+
+                                            return literal.withValue(newValue)
+                                                    .withValueSource("\"" + StringUtils.repeat("\\", leadingBackslashes) + newValue.substring(leadingBackslashes).replace("\\", "\\\\") + "\"");
                                         }
                                     }
                                 }
@@ -167,29 +178,98 @@ public class ChangeSpringPropertyKey extends Recipe {
             } else if (CONDITIONAL_ON_PROPERTY_MATCHER.matches(annotation)) {
                 if (a.getArguments() != null) {
                     a = a.withArguments(ListUtils.map(a.getArguments(), arg -> {
-                        if (arg instanceof J.Assignment &&
-                            "name".equals(((J.Identifier) ((J.Assignment) arg).getVariable()).getSimpleName()) &&
-                            ((J.Assignment) arg).getAssignment() instanceof J.Literal) {
-                            J.Assignment assignment = (J.Assignment) arg;
-                            J.Literal literal = (J.Literal) assignment.getAssignment();
-                            String value = literal.getValue().toString();
-
-                            Pattern pattern = Pattern.compile("^" + quote(oldPropertyKey) + exceptRegex());
-                            Matcher matcher = pattern.matcher(value);
-                            if (matcher.find()) {
-                                arg = assignment.withAssignment(
-                                        literal.withValueSource(
-                                                        literal.getValueSource().replaceFirst(quote(oldPropertyKey), newPropertyKey))
-                                                .withValue(value.replaceFirst(quote(oldPropertyKey), newPropertyKey))
-                                );
+                        if (arg instanceof J.Assignment && "name".equals(((J.Identifier) ((J.Assignment) arg).getVariable()).getSimpleName())) {
+                            if (((J.Assignment) arg).getAssignment() instanceof J.Literal) {
+                                J.Assignment assignment = (J.Assignment) arg;
+                                J.Literal literal = (J.Literal) assignment.getAssignment();
+                                J.Literal newLiteral = changePropertyInLiteral(literal);
+                                if (newLiteral != literal) {
+                                    return assignment.withAssignment(newLiteral);
+                                }
+                            }
+                            if (((J.Assignment) arg).getAssignment() instanceof K.ListLiteral) {
+                                J.Assignment assignment = (J.Assignment) arg;
+                                K.ListLiteral listLiteral = (K.ListLiteral) assignment.getAssignment();
+                                return assignment.withAssignment(listLiteral.withElements(ListUtils.map(listLiteral.getElements(), element -> {
+                                    if (element instanceof J.Literal) {
+                                        J.Literal literal = (J.Literal) element;
+                                        J.Literal newLiteral = changePropertyInLiteral(literal);
+                                        if (newLiteral != literal) {
+                                            return newLiteral;
+                                        }
+                                    }
+                                    return element;
+                                })));
                             }
                         }
                         return arg;
                     }));
                 }
+            } else if (SPRING_BOOT_TEST_MATCHER.matches(annotation)) {
+                a = a.withArguments(ListUtils.map(a.getArguments(), arg -> {
+                    if (arg instanceof J.NewArray) {
+                        J.NewArray array = (J.NewArray) arg;
+                        return array.withInitializer(ListUtils.map(array.getInitializer(),
+                                property -> property instanceof J.Literal ? changePropertyInLiteral((J.Literal) property) : property));
+                    }
+                    if (arg instanceof J.Literal) {
+                        return changePropertyInLiteral((J.Literal) arg);
+                    }
+                    if (arg instanceof J.Assignment &&
+                            "properties".equals(((J.Identifier) ((J.Assignment) arg).getVariable()).getSimpleName())) {
+                        J.Assignment assignment = (J.Assignment) arg;
+                        if (assignment.getAssignment() instanceof J.Literal) {
+                            J.Literal literal = (J.Literal) assignment.getAssignment();
+                            J.Literal newLiteral = changePropertyInLiteral(literal);
+                            if (newLiteral != literal) {
+                                return assignment.withAssignment(newLiteral);
+                            }
+                        } else if (assignment.getAssignment() instanceof J.NewArray) {
+                            J.NewArray array = (J.NewArray) assignment.getAssignment();
+                            return assignment.withAssignment(array.withInitializer(ListUtils.map(array.getInitializer(),
+                                    property -> property instanceof J.Literal ? changePropertyInLiteral((J.Literal) property) : property)));
+                        }
+
+                    }
+                    if (arg instanceof J.Lambda) {
+                        J.Lambda lambda = (J.Lambda) arg;
+                        return lambda.withBody(lambda.getBody() instanceof J.Block ?
+                                ((J.Block) lambda.getBody()).withStatements(ListUtils.map(((J.Block) lambda.getBody()).getStatements(), statement -> {
+                                    if (statement instanceof K.ExpressionStatement &&
+                                        ((K.ExpressionStatement) statement).getExpression() instanceof J.Literal) {
+                                        J.Literal literal = (J.Literal) ((K.ExpressionStatement) statement).getExpression();
+                                        J.Literal newLiteral = changePropertyInLiteral(literal);
+                                        if (newLiteral != literal) {
+                                            return ((K.ExpressionStatement) statement).withExpression(newLiteral);
+                                        }
+                                    }
+                                    return statement;
+                                })) :
+                                lambda.getBody());
+                    }
+                    return arg;
+                }));
             }
 
             return a;
+        }
+
+        private J.Literal changePropertyInLiteral(J.Literal literal) {
+            if (literal.getValue() == null || literal.getValueSource() == null) {
+                return literal;
+            }
+            String value = literal.getValue().toString();
+            if (newPropertyKey.contains(oldPropertyKey) && value.contains(newPropertyKey)) {
+                return literal;
+            }
+            Pattern pattern = Pattern.compile("^" + quote(oldPropertyKey) + exceptRegex());
+            Matcher matcher = pattern.matcher(value);
+            if (matcher.find()) {
+                return literal
+                        .withValue(value.replaceFirst(quote(oldPropertyKey), newPropertyKey))
+                        .withValueSource(literal.getValueSource().replaceFirst(quote(oldPropertyKey), newPropertyKey));
+            }
+            return literal;
         }
     }
 }

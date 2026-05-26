@@ -21,6 +21,7 @@ import org.openrewrite.test.RecipeSpec;
 import org.openrewrite.test.RewriteTest;
 
 import static org.openrewrite.java.Assertions.srcMainResources;
+import static org.openrewrite.java.Assertions.srcTestResources;
 import static org.openrewrite.yaml.Assertions.yaml;
 
 class SeparateApplicationYamlByProfileTest implements RewriteTest {
@@ -46,14 +47,180 @@ class SeparateApplicationYamlByProfileTest implements RewriteTest {
                 name: test
                 """,
               """
-              name: main
-              """,
+                name: main
+                """,
               spec -> spec.path("application.yml").noTrim()
             ),
             yaml(
               doesNotExist(),
               "name: test",
               spec -> spec.path("application-test.yml")
+            )
+          )
+        );
+    }
+
+    @Test
+    void separateProfileList() {
+        rewriteRun(
+          //language=yaml
+          srcMainResources(
+            yaml(
+              """
+                name: main
+                ---
+                spring:
+                  config:
+                    activate:
+                      on-profile:
+                        - test
+                        - unit-test
+                name: test
+                """,
+              """
+                name: main
+                """,
+              spec -> spec.path("application.yml").noTrim()
+            ),
+            yaml(
+              doesNotExist(),
+              "name: test",
+              spec -> spec.path("application-test.yml")
+            ),
+            yaml(
+              doesNotExist(),
+              "name: test",
+              spec -> spec.path("application-unit-test.yml")
+            )
+          )
+        );
+    }
+
+    @Test
+    void mergeIntoExistingProfileFilePreservesFormat() {
+        rewriteRun(
+          srcMainResources(
+            yaml(
+              """
+                server:
+                  port: 8080
+                ---
+                spring:
+                  config:
+                    activate:
+                      on-profile: dev
+                  datasource:
+                    url: jdbc:mysql://devserver
+                    driver-class-name: com.mysql.jdbc.Driver
+                  jpa:
+                    hibernate:
+                      ddl-auto: update
+                    show-sql: true
+                logging:
+                  level:
+                    root: DEBUG
+                """,
+              """
+                server:
+                  port: 8080
+                """,
+              spec -> spec.path("application.yml").noTrim()
+            ),
+            yaml(
+              """
+                server:
+                  port: 9090
+                spring:
+                  datasource:
+                    password: devpassword
+                """,
+              """
+                server:
+                  port: 9090
+                spring:
+                  datasource:
+                    password: devpassword
+                    url: jdbc:mysql://devserver
+                    driver-class-name: com.mysql.jdbc.Driver
+
+                  jpa:
+                    hibernate:
+                      ddl-auto: update
+                    show-sql: true
+
+                logging:
+                  level:
+                    root: DEBUG
+                """,
+              spec -> spec.path("application-dev.yml").noTrim()
+            )
+          )
+        );
+    }
+
+    @Test
+    void mergeIntoExistingProfileFile() {
+        rewriteRun(
+          srcMainResources(
+            yaml(
+              """
+                name: main
+                ---
+                spring:
+                  config:
+                    activate:
+                      on-profile: dev
+                name: dev
+                """,
+              """
+                name: main
+                """,
+              spec -> spec.path("application.yml").noTrim()
+            ),
+            yaml(
+              """
+                existing: property
+                """,
+              """
+                existing: property
+
+                name: dev
+                """,
+              spec -> spec.path("application-dev.yml").noTrim()
+            )
+          )
+        );
+    }
+
+    @Test
+    void doNotModifyExistingProfileFileWhenNoMatchingProfile() {
+        rewriteRun(
+          srcMainResources(
+            yaml(
+              """
+                name: main
+                ---
+                spring:
+                  config:
+                    activate:
+                      on-profile: test
+                name: test
+                """,
+              """
+                name: main
+                """,
+              spec -> spec.path("application.yml").noTrim()
+            ),
+            yaml(
+              doesNotExist(),
+              "name: test",
+              spec -> spec.path("application-test.yml")
+            ),
+            yaml(
+              """
+                existing: property
+                """,
+              spec -> spec.path("application-dev.yml")
             )
           )
         );
@@ -70,6 +237,89 @@ class SeparateApplicationYamlByProfileTest implements RewriteTest {
                   config:
                     activate:
                       on-profile: !test
+                name: test
+                """,
+              spec -> spec.path("application.yml")
+            )
+          )
+        );
+    }
+
+    @Test
+    void doNotModifyTestResourcesApplicationYaml() {
+        rewriteRun(
+          srcTestResources(
+            yaml(
+              """
+                spring:
+                  config:
+                    activate:
+                      on-profile: test
+                name: test
+                """,
+              spec -> spec.path("application.yml")
+            )
+          )
+        );
+    }
+
+    @Test
+    void doNotModifyTestResourcesWhenMainResourcesAreSeparated() {
+        rewriteRun(
+          srcMainResources(
+            yaml(
+              """
+                name: main
+                ---
+                spring:
+                  config:
+                    activate:
+                      on-profile: test
+                name: test
+                """,
+              """
+                name: main
+                """,
+              spec -> spec.path("application.yml").noTrim()
+            ),
+            yaml(
+              doesNotExist(),
+              "name: test",
+              spec -> spec.path("application-test.yml")
+            )
+          ),
+          srcTestResources(
+            yaml(
+              """
+                spring:
+                  config:
+                    activate:
+                      on-profile: test
+                name: test-value
+                """,
+              spec -> spec.path("application.yml")
+            )
+          )
+        );
+    }
+
+    @Test
+    void onCloudPlatformLeftAsIs() {
+        rewriteRun(
+          srcMainResources(
+            yaml(
+              //language=yaml
+              """
+                name: main
+                ---
+                spring:
+                  config:
+                    activate:
+                      on-cloud-platform: kubernetes
+                logging:
+                  structured:
+                    format:
+                      console: logstash
                 name: test
                 """,
               spec -> spec.path("application.yml")

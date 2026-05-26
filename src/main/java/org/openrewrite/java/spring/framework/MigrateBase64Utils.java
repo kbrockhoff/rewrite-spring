@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -44,6 +45,7 @@ public class MigrateBase64Utils extends Recipe {
     private static final MethodMatcher DECODE_FROM_URL_SAFE_STRING = new MethodMatcher(SPRING_BASE_64_UTILS + " decodeFromUrlSafeString(String)");
 
     private static final Map<MethodMatcher, String> MAPPINGS = new HashMap<>();
+
     static {
         MAPPINGS.put(ENCODE, "Base64.getEncoder().encode(#{anyArray(byte)})");
         MAPPINGS.put(DECODE, "Base64.getDecoder().decode(#{anyArray(byte)})");
@@ -55,15 +57,11 @@ public class MigrateBase64Utils extends Recipe {
         MAPPINGS.put(DECODE_FROM_URL_SAFE_STRING, "Base64.getUrlDecoder().decode(#{any(String)})");
     }
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `org.springframework.util.Base64Utils` to `java.io.Base64`";
-    }
+    @Getter
+    final String displayName = "Migrate `org.springframework.util.Base64Utils` to `java.io.Base64`";
 
-    @Override
-    public String getDescription() {
-        return "Replaces usages of deprecated `org.springframework.util.Base64Utils` with `java.util.Base64`.";
-    }
+    @Getter
+    final String description = "Replaces usages of deprecated `org.springframework.util.Base64Utils` with `java.util.Base64`.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -74,8 +72,8 @@ public class MigrateBase64Utils extends Recipe {
                 if (ANY_BASE64UTILS.matches(m)) {
                     for (Map.Entry<MethodMatcher, String> entry : MAPPINGS.entrySet()) {
                         if (entry.getKey().matches(m)) {
-                            maybeAddImport("java.util.Base64");
                             maybeRemoveImport(SPRING_BASE_64_UTILS);
+                            maybeAddImport("java.util.Base64");
                             return JavaTemplate.builder(entry.getValue())
                                     .imports("java.util.Base64")
                                     .build()

@@ -15,10 +15,12 @@
  */
 package org.openrewrite.java.spring;
 
-import lombok.Value;
+import lombok.Getter;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
+import org.openrewrite.java.search.HasSourceSet;
 import org.openrewrite.yaml.DeleteProperty;
+import org.openrewrite.yaml.MergeYamlVisitor;
 import org.openrewrite.yaml.YamlIsoVisitor;
 import org.openrewrite.yaml.search.FindProperty;
 import org.openrewrite.yaml.tree.Yaml;
@@ -27,18 +29,15 @@ import java.nio.file.Path;
 import java.util.*;
 
 import static java.util.Collections.singletonList;
+import static java.util.stream.Collectors.toList;
 
 public class SeparateApplicationYamlByProfile extends ScanningRecipe<SeparateApplicationYamlByProfile.ApplicationProfiles> {
 
-    @Override
-    public String getDisplayName() {
-        return "Separate application YAML by profile";
-    }
+    @Getter
+    final String displayName = "Separate application YAML by profile";
 
-    @Override
-    public String getDescription() {
-        return "The Spring team's recommendation is to separate profile properties into their own YAML files now.";
-    }
+    @Getter
+    final String description = "The Spring team's recommendation is to separate profile properties into their own YAML files now.";
 
     @Override
     public ApplicationProfiles getInitialValue(ExecutionContext ctx) {
@@ -47,28 +46,43 @@ public class SeparateApplicationYamlByProfile extends ScanningRecipe<SeparateApp
 
     @Override
     public TreeVisitor<?, ExecutionContext> getScanner(ApplicationProfiles acc) {
-        return new YamlIsoVisitor<ExecutionContext>() {
+        return Preconditions.check(new HasSourceSet("main").getVisitor(), new YamlIsoVisitor<ExecutionContext>() {
             @Override
             public Yaml.Documents visitDocuments(Yaml.Documents yaml, ExecutionContext ctx) {
+                if (PathUtils.matchesGlob(yaml.getSourcePath(), "**/application-*.{yml,yaml}")) {
+                    acc.existingProfileFiles.add(yaml.getSourcePath());
+                }
                 if (PathUtils.matchesGlob(yaml.getSourcePath(), "**/application.yml")) {
                     Set<Yaml.Documents> profiles = new HashSet<>(yaml.getDocuments().size());
 
                     Yaml.Documents mainYaml = yaml.withDocuments(ListUtils.map(
                             yaml.getDocuments(),
                             doc -> {
-                                String profileName = FindProperty.find(doc, "spring.config.activate.on-profile", true).stream()
+                                List<String> profileNames = FindProperty.find(doc, "spring.config.activate.on-profile", true).stream()
                                         .findAny()
-                                        .map(profile -> ((Yaml.Scalar) profile).getValue())
-                                        .orElse(null);
+                                        .map(profile -> {
+                                            if (profile instanceof Yaml.Scalar) {
+                                                return singletonList(((Yaml.Scalar) profile).getValue());
+                                            }
+                                            if (profile instanceof Yaml.Sequence) {
+                                                return ((Yaml.Sequence) profile).getEntries().stream()
+                                                        .map(entry -> ((Yaml.Scalar) entry.getBlock()).getValue())
+                                                        .collect(toList());
+                                            }
+                                            return null;
+                                        })
+                                        .orElseGet(ArrayList::new);
 
-                                if (profileName != null && profileName.matches("[A-z0-9-]+")) {
-                                    Yaml.Document profileDoc = (Yaml.Document) new DeleteProperty("spring.config.activate.on-profile", true, true, null)
+                                if (!profileNames.isEmpty() && profileNames.stream().allMatch(name -> name.matches("[A-z0-9-]+"))) {
+                                    Yaml.Document profileDoc = (Yaml.Document) new DeleteProperty("spring.config.activate.on-profile", null, true, null)
                                             .getVisitor().visit(doc, ctx, new Cursor(null, yaml));
                                     assert profileDoc != null;
-                                    profiles.add(yaml
-                                            .withId(Tree.randomId())
-                                            .withDocuments(singletonList(profileDoc.withExplicit(false)))
-                                            .withSourcePath(yaml.getSourcePath().resolveSibling("application-" + profileName + ".yml")));
+                                    profileNames.forEach(profileName -> {
+                                        profiles.add(yaml
+                                                .withId(Tree.randomId())
+                                                .withDocuments(singletonList(profileDoc.withExplicit(false)))
+                                                .withSourcePath(yaml.getSourcePath().resolveSibling("application-" + profileName + ".yml")));
+                                    });
                                     return null;
                                 }
 
@@ -76,18 +90,28 @@ public class SeparateApplicationYamlByProfile extends ScanningRecipe<SeparateApp
                             }));
 
                     if (!profiles.isEmpty()) {
-                        acc.getModifiedMainProfileFiles().put(yaml.getSourcePath(), mainYaml);
-                        acc.getNewProfileFiles().addAll(profiles);
+                        acc.modifiedMainProfileFiles.put(yaml.getSourcePath(), mainYaml);
+                        acc.newProfileFiles.addAll(profiles);
                     }
                 }
                 return yaml;
             }
-        };
+        });
     }
 
     @Override
     public Collection<SourceFile> generate(ApplicationProfiles acc, ExecutionContext ctx) {
-        return acc.getNewProfileFiles();
+        Collection<SourceFile> toGenerate = new ArrayList<>();
+        for (SourceFile sf : acc.newProfileFiles) {
+            if (acc.existingProfileFiles.contains(sf.getSourcePath())) {
+                Yaml.Documents docs = (Yaml.Documents) sf;
+                acc.mergeDocuments.computeIfAbsent(sf.getSourcePath(), k -> new ArrayList<>())
+                        .addAll(docs.getDocuments());
+            } else {
+                toGenerate.add(sf);
+            }
+        }
+        return toGenerate;
     }
 
     @Override
@@ -95,14 +119,30 @@ public class SeparateApplicationYamlByProfile extends ScanningRecipe<SeparateApp
         return new YamlIsoVisitor<ExecutionContext>() {
             @Override
             public Yaml.Documents visitDocuments(Yaml.Documents yaml, ExecutionContext ctx) {
-                return acc.getModifiedMainProfileFiles().getOrDefault(yaml.getSourcePath(), yaml);
+                Yaml.Documents result = acc.modifiedMainProfileFiles.getOrDefault(yaml.getSourcePath(), yaml);
+                List<Yaml.Document> docsToMerge = acc.mergeDocuments.get(yaml.getSourcePath());
+                if (docsToMerge != null && !result.getDocuments().isEmpty()) {
+                    Yaml.Document mergedDoc = result.getDocuments().get(0);
+                    for (Yaml.Document incoming : docsToMerge) {
+                        Yaml.Document mergedOrNull = (Yaml.Document) new MergeYamlVisitor<Integer>(
+                                mergedDoc.getBlock(), incoming.getBlock(), true, null, null, null
+                        ).visit(mergedDoc, 0, new Cursor(new Cursor(null, result), mergedDoc));
+                        if (mergedOrNull != null) {
+                            mergedDoc = mergedOrNull;
+                        }
+                    }
+                    Yaml.Document finalMergedDoc = mergedDoc;
+                    result = result.withDocuments(ListUtils.mapFirst(result.getDocuments(), doc -> finalMergedDoc));
+                }
+                return result;
             }
         };
     }
 
-    @Value
     public static class ApplicationProfiles {
         Map<Path, Yaml.Documents> modifiedMainProfileFiles = new HashMap<>();
         Set<SourceFile> newProfileFiles = new HashSet<>();
+        Set<Path> existingProfileFiles = new HashSet<>();
+        Map<Path, List<Yaml.Document>> mergeDocuments = new HashMap<>();
     }
 }

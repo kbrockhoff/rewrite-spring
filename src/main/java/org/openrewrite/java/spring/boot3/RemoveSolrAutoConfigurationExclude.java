@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot3;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -31,15 +32,11 @@ import java.util.List;
 
 public class RemoveSolrAutoConfigurationExclude extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Remove `SolrAutoConfiguration`";
-    }
+    @Getter
+    final String displayName = "Remove `SolrAutoConfiguration`";
 
-    @Override
-    public String getDescription() {
-        return "`SolrAutoConfiguration` was removed in Spring Boot 3; remove references to it from exclusions on annotations.";
-    }
+    @Getter
+    final String description = "`SolrAutoConfiguration` was removed in Spring Boot 3; remove references to it from exclusions on annotations.";
 
     private static final String SPRING_BOOT_APPLICATION = "org.springframework.boot.autoconfigure.SpringBootApplication";
     private static final String ENABLE_AUTO_CONFIGURATION = "org.springframework.boot.autoconfigure.EnableAutoConfiguration";
@@ -89,7 +86,7 @@ public class RemoveSolrAutoConfigurationExclude extends Recipe {
 
                     private boolean isSolrAutoConfigurationClassReference(Expression expr) {
                         return expr instanceof J.FieldAccess &&
-                               TypeUtils.isAssignableTo(SOLR_AUTOCONFIGURATION_FQN, ((J.FieldAccess) expr).getTarget().getType());
+                                TypeUtils.isAssignableTo(SOLR_AUTOCONFIGURATION_FQN, ((J.FieldAccess) expr).getTarget().getType());
                     }
                 });
     }

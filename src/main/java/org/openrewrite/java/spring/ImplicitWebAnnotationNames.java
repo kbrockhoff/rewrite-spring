@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring;
 
+import lombok.Getter;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
 import org.openrewrite.java.JavaIsoVisitor;
@@ -29,15 +30,11 @@ import static java.util.stream.Collectors.toSet;
 import static org.openrewrite.java.tree.TypeUtils.isOfClassType;
 
 public class ImplicitWebAnnotationNames extends Recipe {
-    @Override
-    public String getDisplayName() {
-        return "Remove implicit web annotation names";
-    }
+    @Getter
+    final String displayName = "Remove implicit web annotation names";
 
-    @Override
-    public String getDescription() {
-        return "Removes implicit web annotation names.";
-    }
+    @Getter
+    final String description = "Removes implicit web annotation names.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -67,16 +64,27 @@ public class ImplicitWebAnnotationNames extends Recipe {
         @Override
         public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
             J.VariableDeclarations varDecls = super.visitVariableDeclarations(multiVariable, ctx);
-            // Fix when the annotation looses all it's arguments, and there is no prefix between the annotation and the type expression
-            // i.e: @Annotation(argument)Type is valid but @AnnotationType it's not
+            // Fix when the annotation loses all its arguments, and there is no prefix between the annotation and what follows
+            // i.e: @Annotation(argument)Type is valid but @AnnotationType is not
             if (!varDecls.getLeadingAnnotations().isEmpty()) {
-                if (varDecls.getTypeExpression() != null && varDecls.getTypeExpression().getPrefix().getWhitespace().isEmpty()) {
-                    List<J.Annotation> annotations = varDecls.getLeadingAnnotations();
-                    J.Annotation lastAnnotation = annotations.get(annotations.size() - 1);
-                    if (lastAnnotation.getArguments() == null || lastAnnotation.getArguments().isEmpty()) {
+                List<J.Annotation> annotations = varDecls.getLeadingAnnotations();
+                J.Annotation lastAnnotation = annotations.get(annotations.size() - 1);
+                if (lastAnnotation.getArguments() == null || lastAnnotation.getArguments().isEmpty()) {
+                    // Java case: type expression follows annotation directly (e.g., @PathVariable Long id)
+                    if (varDecls.getTypeExpression() != null && varDecls.getTypeExpression().getPrefix().getWhitespace().isEmpty()) {
                         varDecls = varDecls.withTypeExpression(
                                 varDecls.getTypeExpression().withPrefix(
                                         varDecls.getTypeExpression().getPrefix().withWhitespace(" ")));
+                    }
+                    // Kotlin case: variable name follows annotation directly (e.g., @PathVariable id: Long)
+                    // Only add space if BOTH typeExpression has no whitespace AND variable has no whitespace
+                    // This avoids adding space when there's already whitespace somewhere
+                    else if (varDecls.getTypeExpression() == null && !varDecls.getVariables().isEmpty()) {
+                        J.VariableDeclarations.NamedVariable firstVar = varDecls.getVariables().get(0);
+                        if (firstVar.getPrefix().getWhitespace().isEmpty()) {
+                            varDecls = varDecls.withVariables(ListUtils.mapFirst(varDecls.getVariables(),
+                                    v -> v.withPrefix(v.getPrefix().withWhitespace(" "))));
+                        }
                     }
                 }
             }

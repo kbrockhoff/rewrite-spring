@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static org.openrewrite.java.spring.internal.LocalVariableUtils.resolveExpression;
+import static org.openrewrite.java.spring.security5.PasswordEncoderUtils.isInsideTargetClass;
 
 @EqualsAndHashCode(callSuper = false)
 @Value
@@ -56,16 +57,10 @@ public class UpdateArgon2PasswordEncoder extends Recipe {
     private static final Integer DEFAULT_V52_MEMORY = 4_096;
     private static final Integer DEFAULT_V52_ITERATIONS = 3;
 
-    @Override
-    public String getDisplayName() {
-        return "Use new `Argon2PasswordEncoder` factory methods";
-    }
+    String displayName = "Use new `Argon2PasswordEncoder` factory methods";
 
-    @Override
-    public String getDescription() {
-        return "In Spring Security 5.8 some `Argon2PasswordEncoder` constructors have been deprecated in favor of factory methods. " +
-                "Refer to the [ Spring Security migration docs](https://docs.spring.io/spring-security/reference/5.8/migration/index.html#_update_argon2passwordencoder) for more information.";
-    }
+    String description = "In Spring Security 5.8 some `Argon2PasswordEncoder` constructors have been deprecated in favor of factory methods. " +
+            "Refer to the [ Spring Security migration docs](https://docs.spring.io/spring-security/reference/5.8/migration/index.html#_update_argon2passwordencoder) for more information.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -74,7 +69,8 @@ public class UpdateArgon2PasswordEncoder extends Recipe {
             @Override
             public J visitNewClass(J.NewClass newClass, ExecutionContext ctx) {
                 J j = super.visitNewClass(newClass, ctx);
-                if (j instanceof J.NewClass && TypeUtils.isOfClassType(((J.NewClass) j).getType(), ARGON2_PASSWORD_ENCODER_CLASS)) {
+                if (j instanceof J.NewClass && TypeUtils.isOfClassType(((J.NewClass) j).getType(), ARGON2_PASSWORD_ENCODER_CLASS) &&
+                        !isInsideTargetClass(getCursor(), ARGON2_PASSWORD_ENCODER_CLASS)) {
                     newClass = (J.NewClass) j;
                     if (DEFAULT_CONSTRUCTOR_MATCHER.matches(newClass)) {
                         maybeAddImport(ARGON2_PASSWORD_ENCODER_CLASS);

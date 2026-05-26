@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
@@ -30,16 +31,12 @@ public class ChangeEmbeddedServletContainerCustomizer extends Recipe {
 
     private static final String DEPRECATED_INTERFACE_FQN = "org.springframework.boot.context.embedded.EmbeddedServletContainerCustomizer";
 
-    @Override
-    public String getDisplayName() {
-        return "Adjust configuration classes to use the `WebServerFactoryCustomizer` interface";
-    }
+    @Getter
+    final String displayName = "Adjust configuration classes to use the `WebServerFactoryCustomizer` interface";
 
-    @Override
-    public String getDescription() {
-        return "Find any classes implementing `EmbeddedServletContainerCustomizer` and change the interface to " +
-                "`WebServerFactoryCustomizer<ConfigurableServletWebServerFactory>`.";
-    }
+    @Getter
+    final String description = "Find any classes implementing `EmbeddedServletContainerCustomizer` and change the interface to " +
+            "`WebServerFactoryCustomizer<ConfigurableServletWebServerFactory>`.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -53,9 +50,9 @@ public class ChangeEmbeddedServletContainerCustomizer extends Recipe {
                 return c.withImplements(
                         ListUtils.map(c.getImplements(), i -> {
                             if (TypeUtils.isOfClassType(i.getType(), DEPRECATED_INTERFACE_FQN)) {
+                                maybeRemoveImport(DEPRECATED_INTERFACE_FQN);
                                 maybeAddImport("org.springframework.boot.web.server.WebServerFactoryCustomizer");
                                 maybeAddImport("org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory");
-                                maybeRemoveImport(DEPRECATED_INTERFACE_FQN);
                                 return getWebFactoryCustomizerIdentifier(ctx);
                             }
                             return i;
@@ -73,8 +70,8 @@ public class ChangeEmbeddedServletContainerCustomizer extends Recipe {
                             .build();
                     J.CompilationUnit cu = parser.parse(
                                     "import org.springframework.boot.web.server.WebServerFactoryCustomizer;\n" +
-                                    "import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;\n" +
-                                    "public abstract class Template implements WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> {}"
+                                            "import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory;\n" +
+                                            "public abstract class Template implements WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> {}"
                             )
                             .map(J.CompilationUnit.class::cast)
                             .findFirst()

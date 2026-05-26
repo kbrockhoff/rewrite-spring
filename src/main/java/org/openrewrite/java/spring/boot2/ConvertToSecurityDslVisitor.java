@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.Cursor;
 import org.openrewrite.Tree;
@@ -32,6 +33,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
+@RequiredArgsConstructor
 public class ConvertToSecurityDslVisitor<P> extends JavaIsoVisitor<P> {
 
     private static final String MSG_FLATTEN_CHAIN = "http-security-dsl-flatten-invocation-chain";
@@ -66,14 +68,6 @@ public class ConvertToSecurityDslVisitor<P> extends JavaIsoVisitor<P> {
     public ConvertToSecurityDslVisitor(String securityFqn, Collection<String> convertableMethods,
                                        Map<String, String> argReplacements) {
         this(securityFqn, convertableMethods, argReplacements, new HashMap<>());
-    }
-
-    public ConvertToSecurityDslVisitor(String securityFqn, Collection<String> convertableMethods,
-                                       Map<String, String> argReplacements, Map<String, String> methodRenames) {
-        this.securityFqn = securityFqn;
-        this.convertableMethods = convertableMethods;
-        this.argReplacements = argReplacements;
-        this.methodRenames = methodRenames;
     }
 
     @Override
@@ -116,7 +110,8 @@ public class ConvertToSecurityDslVisitor<P> extends JavaIsoVisitor<P> {
     private static String generateParamNameFromMethodName(String n) {
         int i = n.length() - 1;
         //noinspection StatementWithEmptyBody
-        for (; i >= 0 && Character.isLowerCase(n.charAt(i)); i--) {}
+        for (; i >= 0 && Character.isLowerCase(n.charAt(i)); i--) {
+        }
         if (i >= 0) {
             return StringUtils.uncapitalize(i == 0 ? n : n.substring(i));
         }
@@ -177,18 +172,27 @@ public class ConvertToSecurityDslVisitor<P> extends JavaIsoVisitor<P> {
         JavaType.Method type = m.getMethodType();
         if (type != null) {
             JavaType.FullyQualified declaringType = type.getDeclaringType();
+            // Check if method already has a lambda argument (already transformed in a previous cycle)
+            List<Expression> args = m.getArguments();
+            if (!args.isEmpty() && !(args.get(0) instanceof J.Empty)) {
+                Expression firstArg = args.get(0);
+                if (firstArg instanceof J.Lambda) {
+                    // Already has a lambda argument, skip transformation
+                    return false;
+                }
+            }
             return securityFqn.equals(declaringType.getFullyQualifiedName()) &&
-                   (type.getParameterTypes().isEmpty() || hasHandleableArg(m)) &&
-                   convertableMethods.contains(m.getSimpleName());
+                    (type.getParameterTypes().isEmpty() || hasHandleableArg(m)) &&
+                    convertableMethods.contains(m.getSimpleName());
         }
         return false;
     }
 
     private boolean hasHandleableArg(J.MethodInvocation m) {
         return argReplacements.containsKey(m.getSimpleName()) &&
-               m.getMethodType() != null &&
-               m.getMethodType().getParameterTypes().size() == 1 &&
-               !TypeUtils.isAssignableTo(FQN_CUSTOMIZER, m.getMethodType().getParameterTypes().get(0));
+                m.getMethodType() != null &&
+                m.getMethodType().getParameterTypes().size() == 1 &&
+                !TypeUtils.isAssignableTo(FQN_CUSTOMIZER, m.getMethodType().getParameterTypes().get(0));
     }
 
     private Optional<JavaType.Method> createDesiredReplacement(J.MethodInvocation m) {
@@ -285,13 +289,41 @@ public class ConvertToSecurityDslVisitor<P> extends JavaIsoVisitor<P> {
     }
 
     private boolean isAndMethod(J.MethodInvocation method) {
-        return "and".equals(method.getSimpleName()) &&
-               (method.getArguments().isEmpty() || method.getArguments().get(0) instanceof J.Empty) &&
-               TypeUtils.isAssignableTo(securityFqn, method.getType());
+        if (!"and".equals(method.getSimpleName())) {
+            return false;
+        }
+        if (!(method.getArguments().isEmpty() || method.getArguments().get(0) instanceof J.Empty)) {
+            return false;
+        }
+        // Check return type if available, otherwise check the select's type
+        JavaType returnType = method.getType();
+        if (returnType != null && TypeUtils.isAssignableTo(securityFqn, returnType)) {
+            return true;
+        }
+        // Fallback: check if the select's method return type matches (for Kotlin where types may not be fully resolved)
+        if (method.getSelect() instanceof J.MethodInvocation) {
+            JavaType.Method selectMethodType = ((J.MethodInvocation) method.getSelect()).getMethodType();
+            if (selectMethodType != null) {
+                JavaType selectReturnType = selectMethodType.getReturnType();
+                if (selectReturnType != null && TypeUtils.isAssignableTo(securityFqn, selectReturnType)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean isDisableMethod(J.MethodInvocation method) {
-        return new MethodMatcher("org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer disable()", true).matches(method);
+        if (new MethodMatcher("org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer disable()", true).matches(method)) {
+            return true;
+        }
+        // Also match reactive disable() methods that return the security builder type (e.g., ServerHttpSecurity.CsrfSpec.disable())
+        if ("disable".equals(method.getSimpleName()) &&
+                (method.getArguments().isEmpty() || method.getArguments().get(0) instanceof J.Empty)) {
+            JavaType returnType = method.getType();
+            return returnType != null && TypeUtils.isAssignableTo(securityFqn, returnType);
+        }
+        return false;
     }
 
     private J.MethodInvocation createDefaultsCall() {

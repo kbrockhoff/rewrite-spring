@@ -24,7 +24,13 @@ description: Migrate properties found in `application.properties` and `applicati
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
+  - org.openrewrite.java.spring.ChangeSpringPropertyValue:
+      propertyKey: spring.jpa.hibernate.naming.implicit-strategy
+      oldValue: org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy
+      newValue: org.springframework.boot.hibernate.SpringImplicitNamingStrategy
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: management.health.mongo.enabled
       newPropertyKey: management.health.mongodb.enabled
@@ -34,12 +40,6 @@ recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: management.metrics.mongo.connectionpool.enabled
       newPropertyKey: management.metrics.mongodb.connectionpool.enabled
-  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
-      oldPropertyKey: management.observations.long-task-timer.enabled
-      newPropertyKey: management.metrics.observations.ignored-meters
-  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
-      oldPropertyKey: management.otlp.logging
-      newPropertyKey: management.opentelemetry.logging.export.otlp
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: management.otlp.logging.compression
       newPropertyKey: management.opentelemetry.logging.export.otlp.compression
@@ -118,6 +118,27 @@ recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: management.zipkin.tracing.read-timeout
       newPropertyKey: management.tracing.export.zipkin.read-timeout
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.include-binding-errors
+      newPropertyKey: spring.web.error.include-binding-errors
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.include-exception
+      newPropertyKey: spring.web.error.include-exception
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.include-message
+      newPropertyKey: spring.web.error.include-message
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.include-path
+      newPropertyKey: spring.web.error.include-path
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.include-stacktrace
+      newPropertyKey: spring.web.error.include-stacktrace
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.path
+      newPropertyKey: spring.web.error.path
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: server.error.whitelabel.enabled
+      newPropertyKey: spring.web.error.whitelabel.enabled
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: server.servlet.encoding.charset
       newPropertyKey: spring.servlet.encoding.charset
@@ -211,9 +232,68 @@ recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.jackson.write
       newPropertyKey: spring.jackson.json.write
+
+  # Jackson serialization/deserialization features moved to DateTimeFeature in Jackson 3
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-dates-as-timestamps
+      newPropertyKey: spring.jackson.datatype.datetime.write-dates-as-timestamps
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-date-keys-as-timestamps
+      newPropertyKey: spring.jackson.datatype.datetime.write-date-keys-as-timestamps
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-dates-with-zone-id
+      newPropertyKey: spring.jackson.datatype.datetime.write-dates-with-zone-id
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-dates-with-context-time-zone
+      newPropertyKey: spring.jackson.datatype.datetime.write-dates-with-context-time-zone
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-durations-as-timestamps
+      newPropertyKey: spring.jackson.datatype.datetime.write-durations-as-timestamps
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-date-timestamps-as-nanoseconds
+      newPropertyKey: spring.jackson.datatype.datetime.write-date-timestamps-as-nanoseconds
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.deserialization.adjust-dates-to-context-time-zone
+      newPropertyKey: spring.jackson.datatype.datetime.adjust-dates-to-context-time-zone
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.deserialization.read-date-timestamps-as-nanoseconds
+      newPropertyKey: spring.jackson.datatype.datetime.read-date-timestamps-as-nanoseconds
+
+  # Jackson serialization/deserialization features moved to EnumFeature in Jackson 3
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-enums-using-to-string
+      newPropertyKey: spring.jackson.datatype.enum.write-enums-using-to-string
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-enums-using-index
+      newPropertyKey: spring.jackson.datatype.enum.write-enums-using-index
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.serialization.write-enum-keys-using-index
+      newPropertyKey: spring.jackson.datatype.enum.write-enum-keys-using-index
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.deserialization.fail-on-numbers-for-enums
+      newPropertyKey: spring.jackson.datatype.enum.fail-on-numbers-for-enums
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.deserialization.read-enums-using-to-string
+      newPropertyKey: spring.jackson.datatype.enum.read-enums-using-to-string
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.deserialization.read-unknown-enum-values-as-null
+      newPropertyKey: spring.jackson.datatype.enum.read-unknown-enum-values-as-null
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.jackson.deserialization.read-unknown-enum-values-using-default-value
+      newPropertyKey: spring.jackson.datatype.enum.read-unknown-enum-values-using-default-value
+
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.kafka.retry.topic.backoff.random
       newPropertyKey: spring.kafka.retry.topic.backoff.jitter
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.rabbitmq.listener.direct.retry.max-attempts
+      newPropertyKey: spring.rabbitmq.listener.direct.retry.max-retries
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.rabbitmq.listener.simple.retry.max-attempts
+      newPropertyKey: spring.rabbitmq.listener.simple.retry.max-retries
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.rabbitmq.template.retry.max-attempts
+      newPropertyKey: spring.rabbitmq.template.retry.max-retries
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.session.redis.cleanup-cron
       newPropertyKey: spring.session.data.redis.cleanup-cron
@@ -233,12 +313,49 @@ recipeList:
       oldPropertyKey: spring.session.redis.save-mode
       newPropertyKey: spring.session.data.redis.save-mode
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.session.mongodb.collection-name
+      newPropertyKey: spring.session.data.mongodb.collection-name
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.test.mockmvc.webclient.enabled
       newPropertyKey: spring.test.mockmvc.htmlunit.webclient.enabled
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: spring.test.mockmvc.webdriver.enabled
       newPropertyKey: spring.test.mockmvc.htmlunit.webdriver.enabled
+  - org.openrewrite.java.spring.ChangeSpringPropertyKey:
+      oldPropertyKey: spring.test.webclient.mockrestserviceserver.enabled
+      newPropertyKey: spring.test.restclient.mockrestserviceserver.enabled
 
+
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.endpoints.jackson2.isolated-object-mapper
+      comment: "This property is deprecated: Jackson 3 is preferred."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.access-token
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.batch-size
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.connect-timeout
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.enabled
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.published-histogram-type
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.read-timeout
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.source
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.step
+      comment: "This property is deprecated: SignalFX is no longer supported."
+  - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
+      propertyKey: management.metrics.export.signalfx.uri
+      comment: "This property is deprecated: SignalFX is no longer supported."
   - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
       propertyKey: management.wavefront.api-token
       comment: "This property is deprecated: Wavefront is end-of-life."
@@ -319,10 +436,10 @@ recipeList:
       comment: "This property is deprecated: No longer required. To use Groovy Templates without auto-configuration, depend directly on Groovy Templates instead of spring-boot-groovy-templates."
   - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
       propertyKey: spring.jackson.generator
-      comment: "This property is deprecated: Partially replaced by 'spring.jackson.json.read'."
+      comment: "This property is deprecated: Partially replaced by 'spring.jackson.json.write'."
   - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
       propertyKey: spring.jackson.parser
-      comment: "This property is deprecated: Partially replaced by 'spring.jackson.json.write'."
+      comment: "This property is deprecated: Partially replaced by 'spring.jackson.json.read'."
   - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
       propertyKey: spring.jackson2.constructor-detector
       comment: "This property is deprecated: Deprecated in favor of Jackson 3"
@@ -380,4 +497,3 @@ recipeList:
   - org.openrewrite.java.spring.CommentOutSpringPropertyKey:
       propertyKey: spring.thymeleaf.enabled
       comment: "This property is deprecated: No longer required. To use Thymeleaf without auto-configuration, depend directly on Thymeleaf instead of spring-boot-thymeleaf."
-

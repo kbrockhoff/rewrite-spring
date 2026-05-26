@@ -15,6 +15,8 @@
  */
 package org.openrewrite.java.spring.batch;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
@@ -23,6 +25,7 @@ import org.openrewrite.java.JavaParser;
 import org.openrewrite.java.JavaTemplate;
 import org.openrewrite.java.MethodMatcher;
 import org.openrewrite.java.search.DeclaresMethod;
+import org.openrewrite.java.search.UsesMethod;
 import org.openrewrite.java.service.AnnotationService;
 import org.openrewrite.java.tree.*;
 import org.openrewrite.marker.Markers;
@@ -35,21 +38,65 @@ import static java.util.stream.Collectors.joining;
 
 public class MigrateItemWriterWrite extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `ItemWriter`";
-    }
+    @Getter
+    final String displayName = "Migrate `ItemWriter`";
 
-    @Override
-    public String getDescription() {
-        return "In `ItemWriter` the signature of the `write()` method has changed in spring-batch 5.x.";
-    }
+    @Getter
+    final String description = "In `ItemWriter` the signature of the `write()` method has changed in spring-batch 5.x.";
 
+    private static final String CHUNK_FQN = "org.springframework.batch.item.Chunk";
     private static final MethodMatcher ITEM_WRITER_MATCHER = new MethodMatcher("org.springframework.batch.item.ItemWriter write(java.util.List)", true);
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return Preconditions.check(new DeclaresMethod<>(ITEM_WRITER_MATCHER), new JavaIsoVisitor<ExecutionContext>() {
+        return Preconditions.check(
+                Preconditions.or(new DeclaresMethod<>(ITEM_WRITER_MATCHER), new UsesMethod<>(ITEM_WRITER_MATCHER)),
+                new JavaIsoVisitor<ExecutionContext>() {
+
+            @Override
+            public J.MethodInvocation visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
+                J.MethodInvocation mi = super.visitMethodInvocation(method, ctx);
+                if (!ITEM_WRITER_MATCHER.matches(mi)) {
+                    return mi;
+                }
+                Expression arg = mi.getArguments().get(0);
+                if (TypeUtils.isAssignableTo(CHUNK_FQN, arg.getType())) {
+                    return mi;
+                }
+                // Skip if the argument is the parameter of the enclosing ItemWriter.write(List) declaration —
+                // that case is handled by the parameter type migration below; wrapping here would force the
+                // body to round-trip through .getItems() instead of just passing the migrated Chunk through.
+                if (arg instanceof J.Identifier && isEnclosingWriteParameter((J.Identifier) arg)) {
+                    return mi;
+                }
+                maybeAddImport(CHUNK_FQN);
+                return JavaTemplate.builder("#{any(org.springframework.batch.item.ItemWriter)}.write(new Chunk<>(#{any(java.util.List)}))")
+                        .imports(CHUNK_FQN)
+                        .javaParser(JavaParser.fromJavaVersion()
+                                .classpathFromResources(ctx, "spring-batch-core-5.1.+", "spring-batch-infrastructure-5.1.+"))
+                        .build()
+                        .apply(getCursor(), mi.getCoordinates().replace(), mi.getSelect(), arg);
+            }
+
+            private boolean isEnclosingWriteParameter(J.Identifier ident) {
+                if (ident.getFieldType() == null) {
+                    return false;
+                }
+                String identName = ident.getFieldType().getName();
+                Cursor c = getCursor();
+                while (c != null) {
+                    if (c.getValue() instanceof J.MethodDeclaration) {
+                        J.MethodDeclaration md = c.getValue();
+                        if (!ITEM_WRITER_MATCHER.matches(md.getMethodType())) {
+                            return false;
+                        }
+                        J.VariableDeclarations param = (J.VariableDeclarations) md.getParameters().get(0);
+                        return identName.equals(param.getVariables().get(0).getSimpleName());
+                    }
+                    c = c.getParent();
+                }
+                return false;
+            }
 
             @Override
             public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
@@ -61,7 +108,7 @@ public class MigrateItemWriterWrite extends Recipe {
 
                 J.VariableDeclarations parameter = (J.VariableDeclarations) m.getParameters().get(0);
                 if (!(parameter.getTypeExpression() instanceof J.ParameterizedType) ||
-                    ((J.ParameterizedType) parameter.getTypeExpression()).getTypeParameters() == null) {
+                        ((J.ParameterizedType) parameter.getTypeExpression()).getTypeParameters() == null) {
                     return m;
                 }
                 String chunkTypeParameter = ((J.ParameterizedType) parameter.getTypeExpression()).getTypeParameters().get(0).toString();
@@ -77,7 +124,7 @@ public class MigrateItemWriterWrite extends Recipe {
                         .distinct()
                         .collect(joining("\n"));
 
-                m = new UpdateListMethodInvocations(paramName).visitMethodDeclaration(m, ctx);
+                m = (J.MethodDeclaration) new UpdateListMethodInvocations(paramName).visit(m, ctx, getCursor().getParentTreeCursor());
                 updateCursor(m);
 
                 // Should be able to replace just the parameters and have usages of those parameters get their types
@@ -105,22 +152,19 @@ public class MigrateItemWriterWrite extends Recipe {
                                 paramName,
                                 m.getBody() == null ? ";" : m.getBody().print(getCursor()));
 
-                maybeAddImport("org.springframework.batch.item.Chunk");
                 maybeRemoveImport("java.util.List");
+                maybeAddImport("org.springframework.batch.item.Chunk");
 
                 return m;
             }
         });
     }
 
+    @RequiredArgsConstructor
     private static class UpdateListMethodInvocations extends JavaIsoVisitor<ExecutionContext> {
         private static final String ITERABLE_FQN = "java.lang.Iterable";
         private static final String GET_ITEMS_METHOD = "getItems";
         private final String parameterName;
-
-        public UpdateListMethodInvocations(String parameterName) {
-            this.parameterName = parameterName;
-        }
 
         private static final MethodMatcher COLLECTION_MATCHER = new MethodMatcher("java.util.Collection *(..)", true);
         private static final MethodMatcher LIST_MATCHER = new MethodMatcher("java.util.List *(..)", true);
@@ -188,8 +232,8 @@ public class MigrateItemWriterWrite extends Recipe {
 
         private boolean isParameter(@Nullable Expression maybeParameter) {
             return maybeParameter instanceof J.Identifier &&
-                   ((J.Identifier) maybeParameter).getFieldType() != null &&
-                   ((J.Identifier) maybeParameter).getFieldType().getName().equals(parameterName);
+                    ((J.Identifier) maybeParameter).getFieldType() != null &&
+                    ((J.Identifier) maybeParameter).getFieldType().getName().equals(parameterName);
         }
 
         private static J.MethodInvocation newGetItemsMethodInvocation(JRightPadded<Expression> select) {

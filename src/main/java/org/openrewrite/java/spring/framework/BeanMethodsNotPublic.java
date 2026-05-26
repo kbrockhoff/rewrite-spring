@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -32,15 +33,11 @@ public class BeanMethodsNotPublic extends Recipe {
     private static final String BEAN = "org.springframework.context.annotation.Bean";
     private static final AnnotationMatcher BEAN_ANNOTATION_MATCHER = new AnnotationMatcher("@" + BEAN);
 
-    @Override
-    public String getDisplayName() {
-        return "Remove `public` from `@Bean` methods";
-    }
+    @Getter
+    final String displayName = "Remove `public` from `@Bean` methods";
 
-    @Override
-    public String getDescription() {
-        return "Remove public modifier from `@Bean` methods. They no longer have to be public visibility to be usable by Spring.";
-    }
+    @Getter
+    final String description = "Remove public modifier from `@Bean` methods. They no longer have to be public visibility to be usable by Spring.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -48,7 +45,7 @@ public class BeanMethodsNotPublic extends Recipe {
             @Override
             public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration method, ExecutionContext ctx) {
                 if (service(AnnotationService.class).matches(getCursor(), BEAN_ANNOTATION_MATCHER) &&
-                    !TypeUtils.isOverride(method.getMethodType())) {
+                        !TypeUtils.isOverride(method.getMethodType())) {
                     // remove public modifier and copy any associated comments to the method
                     doAfterVisit(new ChangeMethodAccessLevelVisitor<>(new MethodMatcher(method), null));
                 }

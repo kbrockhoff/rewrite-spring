@@ -24,15 +24,22 @@ tags:
   - openapi
   - springfox
   - springdoc
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.AddCommentToMethodInvocations:
       comment: "TODO: The transformation of Docket to OpenAPI is too complex to be adequately handled in a recipe. See https://springdoc.org/migrating-from-springfox.html for guidance."
       methodPattern: "springfox.documentation.spring.web.plugins.Docket <constructor>(..)"
+  - org.openrewrite.java.AddCommentToMethodInvocations:
+      comment: "TODO: springfox.documentation.spring.web.json types have no SpringDoc equivalent. Remove this Springfox-internal code and use Jackson ObjectMapper directly if JSON serialization is still needed. See https://springdoc.org/migrating-from-springfox.html for guidance."
+      methodPattern: "springfox.documentation.spring.web.json.Json* *(..)"
   - org.openrewrite.java.springdoc.SwaggerToSpringDoc
   - org.openrewrite.java.springdoc.ReplaceSpringFoxDependencies
   - org.openrewrite.java.spring.doc.ApiInfoBuilderToInfo
   - org.openrewrite.java.spring.doc.SecurityContextToSecurityScheme
+  - org.openrewrite.java.spring.doc.MigrateSpringFoxSecurityConfiguration
   - org.openrewrite.java.springdoc.MigrateSpringdocCommon
+  - org.openrewrite.java.springdoc.CleanupRemainingSpringfox
 
 ---
 type: specs.openrewrite.org/v1beta/recipe
@@ -43,18 +50,11 @@ tags:
   - swagger
   - springdoc
   - openapi
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.openapi.swagger.SwaggerToOpenAPI
   - org.openrewrite.java.spring.doc.RemoveBeanValidatorPluginsConfiguration
-  - org.openrewrite.java.spring.DeleteSpringProperty:
-      propertyKey: swagger.title
-  - org.openrewrite.java.spring.DeleteSpringProperty:
-      propertyKey: swagger.description
-  - org.openrewrite.java.spring.DeleteSpringProperty:
-      propertyKey: swagger.contact
-  - org.openrewrite.java.dependencies.RemoveDependency:
-      groupId: io.swagger.core.v3
-      artifactId: swagger-annotations
   - org.openrewrite.java.RemoveAnnotation:
       annotationPattern: '@springfox.documentation.swagger2.annotations.EnableSwagger2'
   - org.openrewrite.java.spring.doc.MigrateDocketBeanToGroupedOpenApiBean
@@ -71,6 +71,7 @@ preconditions:
   - org.openrewrite.java.dependencies.DependencyInsight:
       groupIdPattern: io.springfox
       artifactIdPattern: "*"
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.RemoveDependency:
       groupId: io.springfox
@@ -83,11 +84,28 @@ recipeList:
 # Compatibility matrix: https://springdoc.org/#what-is-the-compatibility-matrix-of-springdoc-openapi-with-spring-boot
 ---
 type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.springdoc.UpgradeSpringDoc_3_0
+displayName: Upgrade to SpringDoc 3.0
+description: Upgrade to SpringDoc v3.0.
+tags:
+  - springdoc
+preconditions:
+  - org.openrewrite.Singleton
+recipeList:
+  - org.openrewrite.java.springdoc.UpgradeSpringDoc_2_8
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.springdoc
+      artifactId: "*"
+      newVersion: 3.0.x
+---
+type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.springdoc.UpgradeSpringDoc_2_8
 displayName: Upgrade to SpringDoc 2.8
 description: Upgrade to SpringDoc v2.8.
 tags:
   - springdoc
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.springdoc.UpgradeSpringDoc_2_6
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
@@ -101,6 +119,8 @@ displayName: Upgrade to SpringDoc 2.6
 description: Upgrade to SpringDoc v2.6.
 tags:
   - springdoc
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.springdoc.UpgradeSpringDoc_2_5
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
@@ -114,6 +134,8 @@ displayName: Upgrade to SpringDoc 2.5
 description: Upgrade to SpringDoc v2.5.
 tags:
   - springdoc
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.springdoc.UpgradeSpringDoc_2_2
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
@@ -127,6 +149,8 @@ displayName: Upgrade to SpringDoc 2.2
 description: Upgrade to SpringDoc v2.2.
 tags:
   - springdoc
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.springdoc.UpgradeSpringDoc_2
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
@@ -140,7 +164,10 @@ displayName: Upgrade to SpringDoc 2.1
 description: Upgrade to SpringDoc v2.1, as described in the [upgrade guide](https://springdoc.org/#migrating-from-springdoc-v1).
 tags:
   - springdoc
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
+  - org.openrewrite.openapi.swagger.SwaggerToOpenAPI
   - org.openrewrite.openapi.swagger.UseJakartaSwaggerArtifacts
   # "classes/annotations changes"
   - org.openrewrite.java.ChangeType:
@@ -223,6 +250,8 @@ description: Migrate from springdoc-openapi-common to springdoc-openapi-starter-
 tags:
   - springdoc
   - openapi
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.springdoc.core.customizers.OpenApiCustomiser
@@ -233,3 +262,19 @@ recipeList:
   - org.openrewrite.java.ChangeType:
       oldFullyQualifiedTypeName: org.springdoc.core.GroupedOpenApi
       newFullyQualifiedTypeName: org.springdoc.core.models.GroupedOpenApi
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.springdoc.CleanupRemainingSpringfox
+displayName: Remove remaining Springfox dead code
+description: >-
+  Removes unused private methods left behind after SpringFoxToSpringDoc migration.
+  When Docket beans are removed, private helper methods (e.g., `appInfo()`) become
+  dead code but are not cleaned up, causing compilation errors.
+preconditions:
+  - org.openrewrite.java.search.FindTypes:
+      fullyQualifiedTypeName: springfox..*
+  - org.openrewrite.Singleton
+recipeList:
+  - org.openrewrite.staticanalysis.RemoveUnusedPrivateFields
+  - org.openrewrite.staticanalysis.RemoveUnusedPrivateMethods

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -28,15 +29,11 @@ import org.openrewrite.java.tree.J;
 
 public class MigrateMultipartConfigFactory extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Use `MultipartConfigFactory` with `DataSize` arguments";
-    }
+    @Getter
+    final String displayName = "Use `MultipartConfigFactory` with `DataSize` arguments";
 
-    @Override
-    public String getDescription() {
-        return "Methods to set `DataSize` with primitive arguments were deprecated in 2.1 and removed in 2.2.";
-    }
+    @Getter
+    final String description = "Methods to set `DataSize` with primitive arguments were deprecated in 2.1 and removed in 2.2.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -55,23 +52,23 @@ public class MigrateMultipartConfigFactory extends Recipe {
                         J.MethodInvocation m = super.visitMethodInvocation(method, ctx);
                         if (setMaxFileSizeByLong.matches(m) || setMaxRequestSizeByLong.matches(m) || setFileSizeThresholdByInt.matches(m)) {
                             m = JavaTemplate.builder("DataSize.ofBytes(#{any()})")
-                                            .imports("org.springframework.util.unit.DataSize")
-                                            .javaParser(JavaParser.fromJavaVersion()
-                                                    .classpathFromResources(ctx, "spring-core-5.*", "spring-boot-2.*"))
-                                            .build().apply(
-                                    getCursor(),
-                                    m.getCoordinates().replaceArguments(),
-                                    m.getArguments().get(0));
+                                    .imports("org.springframework.util.unit.DataSize")
+                                    .javaParser(JavaParser.fromJavaVersion()
+                                            .classpathFromResources(ctx, "spring-core-5.*", "spring-boot-2.*"))
+                                    .build().apply(
+                                            getCursor(),
+                                            m.getCoordinates().replaceArguments(),
+                                            m.getArguments().get(0));
                         } else if (setMaxFileSizeByString.matches(m) || setMaxRequestSizeByString.matches(m) || setFileSizeThresholdByString.matches(m)) {
                             m = JavaTemplate
-                                .builder("DataSize.parse(#{any(java.lang.String)})")
-                                .imports("org.springframework.util.unit.DataSize")
-                                .javaParser(JavaParser.fromJavaVersion()
-                                    .classpathFromResources(ctx, "spring-core-5.*", "spring-boot-2.*"))
-                                .build().apply(
-                                    getCursor(),
-                                    m.getCoordinates().replaceArguments(),
-                                    m.getArguments().get(0));
+                                    .builder("DataSize.parse(#{any(java.lang.String)})")
+                                    .imports("org.springframework.util.unit.DataSize")
+                                    .javaParser(JavaParser.fromJavaVersion()
+                                            .classpathFromResources(ctx, "spring-core-5.*", "spring-boot-2.*"))
+                                    .build().apply(
+                                            getCursor(),
+                                            m.getCoordinates().replaceArguments(),
+                                            m.getArguments().get(0));
                         }
                         maybeAddImport("org.springframework.util.unit.DataSize");
                         return m;

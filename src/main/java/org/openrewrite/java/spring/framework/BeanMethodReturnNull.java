@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -33,15 +34,11 @@ public class BeanMethodReturnNull extends Recipe {
     private static final AnnotationMatcher BEAN_ANNOTATION_MATCHER = new AnnotationMatcher("@" + BEAN_ANNOTATION_FQN);
     private static final String MSG_RETURN_VOID = "RETURN_VOID";
 
-    @Override
-    public String getDisplayName() {
-        return "`@Bean` methods may not return `void`";
-    }
+    @Getter
+    final String displayName = "`@Bean` methods may not return `void`";
 
-    @Override
-    public String getDescription() {
-        return "Make `@Bean` methods return `Object` instead of `void`.";
-    }
+    @Getter
+    final String description = "Make `@Bean` methods return `Object` instead of `void`.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -50,8 +47,8 @@ public class BeanMethodReturnNull extends Recipe {
             public J.MethodDeclaration visitMethodDeclaration(J.MethodDeclaration md, ExecutionContext ctx) {
                 // When the method is annotated with @Bean and it is not an override method
                 if (service(AnnotationService.class).matches(getCursor(), BEAN_ANNOTATION_MATCHER) &&
-                    !TypeUtils.isOverride(md.getMethodType()) && md.getBody() != null &&
-                    md.getReturnTypeExpression() != null && md.getReturnTypeExpression().getType() == JavaType.Primitive.Void) {
+                        !TypeUtils.isOverride(md.getMethodType()) && md.getBody() != null &&
+                        md.getReturnTypeExpression() != null && md.getReturnTypeExpression().getType() == JavaType.Primitive.Void) {
 
                     // Add `return null;` if the method does not have a return statement
                     List<Statement> statements = md.getBody().getStatements();

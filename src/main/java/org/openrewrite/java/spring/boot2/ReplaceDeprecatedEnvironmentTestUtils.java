@@ -15,6 +15,9 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -43,16 +46,12 @@ public class ReplaceDeprecatedEnvironmentTestUtils extends Recipe {
     private static final MethodMatcher ENVIRONMENT = new MethodMatcher("org.springframework.boot.test.util.EnvironmentTestUtils addEnvironment(org.springframework.core.env.ConfigurableEnvironment, String...)");
     private static final MethodMatcher NAMED_ENVIRONMENT = new MethodMatcher("org.springframework.boot.test.util.EnvironmentTestUtils addEnvironment(String, org.springframework.core.env.ConfigurableEnvironment, String...)");
 
-    @Override
-    public String getDisplayName() {
-        return "Replace `EnvironmentTestUtils` with `TestPropertyValues`";
-    }
+    @Getter
+    final String displayName = "Replace `EnvironmentTestUtils` with `TestPropertyValues`";
 
-    @Override
-    public String getDescription() {
-        return "Replaces any references to the deprecated `EnvironmentTestUtils` " +
-                "with `TestPropertyValues` and the appropriate functionality.";
-    }
+    @Getter
+    final String description = "Replaces any references to the deprecated `EnvironmentTestUtils` " +
+            "with `TestPropertyValues` and the appropriate functionality.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -60,21 +59,13 @@ public class ReplaceDeprecatedEnvironmentTestUtils extends Recipe {
                 new FindEnvironmentTestUtilsVisitor());
     }
 
+    @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
     static final class ReplaceEnvironmentUtilsMarker implements Marker {
         private final String templateString;
         private final List<Expression> parameters;
+
+        @Getter
         private final UUID id;
-
-        ReplaceEnvironmentUtilsMarker(String templateString, List<Expression> parameters, UUID id) {
-            this.templateString = templateString;
-            this.parameters = parameters;
-            this.id = id;
-        }
-
-        @Override
-        public UUID getId() {
-            return id;
-        }
 
         @Override
         @SuppressWarnings("unchecked")
@@ -153,7 +144,7 @@ public class ReplaceDeprecatedEnvironmentTestUtils extends Recipe {
                     SemanticallyEqual.areEqual(contextOrEnvironmentToCheck, collectedContextOrEnvironment) &&
                     (environmentNameToCheck == null && collectedEnvironmentName == null) ||
                     (environmentNameToCheck != null && collectedEnvironmentName != null &&
-                    SemanticallyEqual.areEqual(environmentNameToCheck, collectedEnvironmentName));
+                            SemanticallyEqual.areEqual(environmentNameToCheck, collectedEnvironmentName));
         }
 
         private @Nullable Expression getEnvironmentNameArgument(J.MethodInvocation methodInvocation) {
@@ -251,15 +242,15 @@ public class ReplaceDeprecatedEnvironmentTestUtils extends Recipe {
             if (maybeMarker.isPresent()) {
                 ReplaceEnvironmentUtilsMarker marker = maybeMarker.get();
                 m = JavaTemplate.builder(marker.templateString)
-                    .contextSensitive()
-                    .javaParser(JavaParser.fromJavaVersion()
-                        .classpathFromResources(ctx, "spring-boot-test-2.*"))
-                    .imports("org.springframework.boot.test.util.TestPropertyValues")
-                    .build().apply(
-                        getCursor(),
-                        m.getCoordinates().replace(),
-                        marker.parameters.toArray()
-                );
+                        .contextSensitive()
+                        .javaParser(JavaParser.fromJavaVersion()
+                                .classpathFromResources(ctx, "spring-boot-test-2.*"))
+                        .imports("org.springframework.boot.test.util.TestPropertyValues")
+                        .build().apply(
+                                getCursor(),
+                                m.getCoordinates().replace(),
+                                marker.parameters.toArray()
+                        );
 
                 maybeRemoveImport("org.springframework.boot.test.util.EnvironmentTestUtils.addEnvironment");
                 maybeAddImport("org.springframework.boot.test.util.TestPropertyValues");

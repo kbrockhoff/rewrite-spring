@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -39,15 +40,11 @@ public class HttpComponentsClientHttpRequestFactoryReadTimeout extends Recipe {
     // Known case we do not handle yet
     private static final MethodMatcher SET_DEFAULT_SOCKET_CONFIG = new MethodMatcher(POOLING_CONNECTION_MANAGER + " setDefaultSocketConfig(org.apache.hc.core5.http.io.SocketConfig)");
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `setReadTimeout(java.lang.int)` to SocketConfig `setSoTimeout(..)`";
-    }
+    @Getter
+    final String displayName = "Migrate `setReadTimeout(java.lang.int)` to SocketConfig `setSoTimeout(..)`";
 
-    @Override
-    public String getDescription() {
-        return "`setReadTimeout(..)` was removed in Spring Framework 6.1.";
-    }
+    @Getter
+    final String description = "`setReadTimeout(..)` was removed in Spring Framework 6.1.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -67,7 +64,7 @@ public class HttpComponentsClientHttpRequestFactoryReadTimeout extends Recipe {
                             }
 
                             String message = " Manual migration to `SocketConfig.Builder.setSoTimeout(Timeout)` necessary; see: " +
-                                             "https://docs.spring.io/spring-framework/docs/6.0.0/javadoc-api/org/springframework/http/client/HttpComponentsClientHttpRequestFactory.html#setReadTimeout(int)";
+                                    "https://docs.spring.io/spring-framework/docs/6.0.0/javadoc-api/org/springframework/http/client/HttpComponentsClientHttpRequestFactory.html#setReadTimeout(int)";
                             if (method.getComments().stream().noneMatch(c -> c.printComment(getCursor()).contains(message))) {
                                 return method.withPrefix(method.getPrefix().withComments(ListUtils.concat(method.getComments(),
                                         new TextComment(false, message, "\n" + method.getPrefix().getIndent(), Markers.EMPTY)
@@ -91,8 +88,8 @@ public class HttpComponentsClientHttpRequestFactoryReadTimeout extends Recipe {
                     public J.Block visitBlock(J.Block block, ExecutionContext ctx) {
                         for (Statement statement : block.getStatements()) {
                             if (statement instanceof J.VariableDeclarations &&
-                                TypeUtils.isAssignableTo(POOLING_CONNECTION_MANAGER,
-                                        ((J.VariableDeclarations) statement).getTypeAsFullyQualified())) {
+                                    TypeUtils.isAssignableTo(POOLING_CONNECTION_MANAGER,
+                                            ((J.VariableDeclarations) statement).getTypeAsFullyQualified())) {
                                 J.VariableDeclarations varDecl = (J.VariableDeclarations) statement;
                                 maybeAddImport("org.apache.hc.core5.http.io.SocketConfig");
                                 maybeAddImport("java.util.concurrent.TimeUnit");

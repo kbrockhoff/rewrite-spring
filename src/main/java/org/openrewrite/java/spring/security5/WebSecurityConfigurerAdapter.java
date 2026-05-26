@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.security5;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.*;
 import org.openrewrite.internal.ListUtils;
@@ -82,15 +83,11 @@ public class WebSecurityConfigurerAdapter extends Recipe {
         INMEMORY
     }
 
-    @Override
-    public String getDisplayName() {
-        return "Spring Security 5.4 introduces the ability to configure `HttpSecurity` by creating a `SecurityFilterChain` bean";
-    }
+    @Getter
+    final String displayName = "Spring Security 5.4 introduces the ability to configure `HttpSecurity` by creating a `SecurityFilterChain` bean";
 
-    @Override
-    public String getDescription() {
-        return "The Spring Security `WebSecurityConfigurerAdapter` was deprecated 5.7, this recipe will transform `WebSecurityConfigurerAdapter` classes by using a component based approach. Check out the [spring-security-without-the-websecurityconfigureradapter](https://spring.io/blog/2022/02/21/spring-security-without-the-websecurityconfigureradapter) blog for more details.";
-    }
+    @Getter
+    final String description = "The Spring Security `WebSecurityConfigurerAdapter` was deprecated 5.7, this recipe will transform `WebSecurityConfigurerAdapter` classes by using a component based approach. Check out the [spring-security-without-the-websecurityconfigureradapter](https://spring.io/blog/2022/02/21/spring-security-without-the-websecurityconfigureradapter) blog for more details.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -347,32 +344,41 @@ public class WebSecurityConfigurerAdapter extends Recipe {
             }
 
             private J.Block handleHttpSecurity(J.Block b, J.MethodDeclaration parentMethod) {
+                b = b.withStatements(ListUtils.map(b.getStatements(), stmt -> {
+                    if (stmt instanceof J.MethodInvocation) {
+                        J.MethodInvocation mi = (J.MethodInvocation) stmt;
+                        if (CONFIGURE_HTTP_SECURITY_METHOD_MATCHER.matches(mi.getMethodType())) {
+                            return null;
+                        }
+                    }
+                    return stmt;
+                }));
                 return JavaTemplate.builder("return #{any(org.springframework.security.config.annotation.SecurityBuilder)}.build();")
-                    .contextSensitive()
-                    .javaParser(JavaParser.fromJavaVersion()
-                        .dependsOn("package org.springframework.security.config.annotation;" +
-                                   "public interface SecurityBuilder<O> {\n" +
-                                   "    O build() throws Exception;" +
-                                   "}"))
-                    .imports("org.springframework.security.config.annotation.SecurityBuilder")
-                    .build()
-                    .apply(
-                        getCursor(),
-                        b.getCoordinates().lastStatement(),
-                        ((J.VariableDeclarations) parentMethod.getParameters().get(0)).getVariables().get(0).getName()
-                    );
+                        .contextSensitive()
+                        .javaParser(JavaParser.fromJavaVersion()
+                                .dependsOn("package org.springframework.security.config.annotation;" +
+                                        "public interface SecurityBuilder<O> {\n" +
+                                        "    O build() throws Exception;" +
+                                        "}"))
+                        .imports("org.springframework.security.config.annotation.SecurityBuilder")
+                        .build()
+                        .apply(
+                                updateCursor(b),
+                                b.getCoordinates().lastStatement(),
+                                ((J.VariableDeclarations) parentMethod.getParameters().get(0)).getVariables().get(0).getName()
+                        );
             }
 
             private J.Block handleWebSecurity(J.Block b, J.MethodDeclaration parentMethod) {
                 String t = "return (" + ((J.VariableDeclarations) parentMethod.getParameters().get(0)).getVariables().get(0).getName().getSimpleName() + ") -> #{any()};";
                 b = JavaTemplate.builder(t)
-                    .contextSensitive()
-                    .javaParser(JavaParser.fromJavaVersion())
-                    .build()
-                    .apply(
-                        getCursor(),
-                        b.getCoordinates().firstStatement(), b
-                    );
+                        .contextSensitive()
+                        .javaParser(JavaParser.fromJavaVersion())
+                        .build()
+                        .apply(
+                                getCursor(),
+                                b.getCoordinates().firstStatement(), b
+                        );
                 return b.withStatements(ListUtils.map(b.getStatements(), (index, stmt) -> {
                     if (index == 0) {
                         return stmt;
@@ -438,8 +444,8 @@ public class WebSecurityConfigurerAdapter extends Recipe {
                 allExceptLastStatements.remove(b.getStatements().size() - 1);
                 b = b.withStatements(allExceptLastStatements);
                 b = template.apply(updateCursor(b), b.getCoordinates().lastStatement(), templateParams);
-                maybeAddImport(FQN_INMEMORY_AUTH_MANAGER);
                 maybeRemoveImport(FQN_AUTH_MANAGER_BUILDER);
+                maybeAddImport(FQN_INMEMORY_AUTH_MANAGER);
                 return b;
             }
         });

@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -29,15 +30,11 @@ import org.openrewrite.java.tree.TypeUtils;
 
 public class MigrateDiskSpaceHealthIndicatorConstructor extends Recipe {
 
-    @Override
-    public String getDisplayName() {
-        return "Use `DiskSpaceHealthIndicator(File, DataSize)`";
-    }
+    @Getter
+    final String displayName = "Use `DiskSpaceHealthIndicator(File, DataSize)`";
 
-    @Override
-    public String getDescription() {
-        return "`DiskSpaceHealthIndicator(File, long)` was deprecated in Spring Data 2.1 for removal in 2.2.";
-    }
+    @Getter
+    final String description = "`DiskSpaceHealthIndicator(File, long)` was deprecated in Spring Data 2.1 for removal in 2.2.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -53,14 +50,14 @@ public class MigrateDiskSpaceHealthIndicatorConstructor extends Recipe {
 
                     maybeAddImport("org.springframework.util.unit.DataSize");
                     return JavaTemplate.builder("new DiskSpaceHealthIndicator(#{any(java.io.File)}, DataSize.ofBytes(#{any(long)}))")
-                        .imports("org.springframework.util.unit.DataSize")
-                        .javaParser(JavaParser.fromJavaVersion()
-                            .classpathFromResources(ctx, "spring-boot-actuator-2", "spring-core-5"))
-                        .build().apply(
-                            getCursor(),
-                            newClass.getCoordinates().replace(),
-                            newClass.getArguments().get(0),
-                            newClass.getArguments().get(1));
+                            .imports("org.springframework.util.unit.DataSize")
+                            .javaParser(JavaParser.fromJavaVersion()
+                                    .classpathFromResources(ctx, "spring-boot-actuator-2", "spring-core-5"))
+                            .build().apply(
+                                    getCursor(),
+                                    newClass.getCoordinates().replace(),
+                                    newClass.getArguments().get(0),
+                                    newClass.getArguments().get(1));
                 }
 
                 return super.visitNewClass(newClass, ctx);

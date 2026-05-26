@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -31,15 +32,11 @@ public class MigrateHandlerResultSetExceptionHandlerMethod extends Recipe {
 
     private static final MethodMatcher METHOD_MATCHER = new MethodMatcher(HandlerResult + " setExceptionHandler(java.util.function.Function)");
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `org.springframework.web.reactive.HandlerResult.setExceptionHandler` method";
-    }
+    @Getter
+    final String displayName = "Migrate `org.springframework.web.reactive.HandlerResult.setExceptionHandler` method";
 
-    @Override
-    public String getDescription() {
-        return "`org.springframework.web.reactive.HandlerResult.setExceptionHandler(Function<Throwable, Mono<HandlerResult>>)` was deprecated, in favor of `setExceptionHandler(DispatchExceptionHandler)`.";
-    }
+    @Getter
+    final String description = "`org.springframework.web.reactive.HandlerResult.setExceptionHandler(Function<Throwable, Mono<HandlerResult>>)` was deprecated, in favor of `setExceptionHandler(DispatchExceptionHandler)`.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -50,14 +47,10 @@ public class MigrateHandlerResultSetExceptionHandlerMethod extends Recipe {
                 J.MethodInvocation m = super.visitMethodInvocation(method, ctx);
                 if (METHOD_MATCHER.matches(m)) {
                     if (m.getArguments().get(0) instanceof J.Identifier) {
-                        return JavaTemplate.builder("(exchange, ex) ->  #{any()}.apply(ex)")
-                                .build()
-                                .apply(getCursor(), m.getCoordinates().replaceArguments(), m.getArguments().get(0));
+                        return JavaTemplate.apply("(exchange, ex) ->  #{any()}.apply(ex)", getCursor(), m.getCoordinates().replaceArguments(), m.getArguments().get(0));
                     }
                     if (m.getArguments().get(0) instanceof J.Lambda) {
-                        return JavaTemplate.builder("(exchange, ex) ->  #{any()}")
-                                .build()
-                                .apply(getCursor(), m.getCoordinates().replaceArguments(), ((J.Lambda) m.getArguments().get(0)).getBody());
+                        return JavaTemplate.apply("(exchange, ex) ->  #{any()}", getCursor(), m.getCoordinates().replaceArguments(), ((J.Lambda) m.getArguments().get(0)).getBody());
                     }
                 }
                 return m;

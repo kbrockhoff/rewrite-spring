@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.framework;
 
+import lombok.Getter;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
@@ -40,15 +41,11 @@ public class MigrateHandlerInterceptor extends Recipe {
     private static final MethodMatcher POST_HANDLE = new MethodMatcher("org.springframework.web.servlet.HandlerInterceptor postHandle(..)");
     private static final MethodMatcher AFTER_COMPLETION = new MethodMatcher("org.springframework.web.servlet.HandlerInterceptor afterCompletion(..)");
 
-    @Override
-    public String getDisplayName() {
-        return "Migrate `HandlerInterceptorAdapter` to `HandlerInterceptor`";
-    }
+    @Getter
+    final String displayName = "Migrate `HandlerInterceptorAdapter` to `HandlerInterceptor`";
 
-    @Override
-    public String getDescription() {
-        return "Deprecated as of 5.3 in favor of implementing `HandlerInterceptor` and/or `AsyncHandlerInterceptor`.";
-    }
+    @Getter
+    final String description = "Deprecated as of 5.3 in favor of implementing `HandlerInterceptor` and/or `AsyncHandlerInterceptor`.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -60,8 +57,8 @@ public class MigrateHandlerInterceptor extends Recipe {
                     return cd;
                 }
 
-                maybeAddImport(HANDLER_INTERCEPTOR_INTERFACE);
                 maybeRemoveImport(HANDLER_INTERCEPTOR_ADAPTER);
+                maybeAddImport(HANDLER_INTERCEPTOR_INTERFACE);
 
                 TypeTree implments = TypeTree.build("HandlerInterceptor")
                         .withType(JavaType.buildType(HANDLER_INTERCEPTOR_INTERFACE));
@@ -73,8 +70,8 @@ public class MigrateHandlerInterceptor extends Recipe {
             public @Nullable J visitMethodInvocation(J.MethodInvocation method, ExecutionContext ctx) {
                 J.MethodInvocation mi = (J.MethodInvocation) super.visitMethodInvocation(method, ctx);
                 if (mi.getMethodType() != null &&
-                    TypeUtils.isOfClassType(mi.getMethodType().getDeclaringType(), HANDLER_INTERCEPTOR_INTERFACE) &&
-                    mi.getSelect() instanceof J.Identifier && "super".equals(((J.Identifier) mi.getSelect()).getSimpleName())) {
+                        TypeUtils.isOfClassType(mi.getMethodType().getDeclaringType(), HANDLER_INTERCEPTOR_INTERFACE) &&
+                        mi.getSelect() instanceof J.Identifier && "super".equals(((J.Identifier) mi.getSelect()).getSimpleName())) {
                     if (PRE_HANDLE.matches(mi)) {
                         // No need to call super for the hardcoded `true` return value there
                         return JavaTemplate.apply("true", getCursor(), mi.getCoordinates().replace());

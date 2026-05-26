@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.batch;
 
+import lombok.Getter;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.Nullable;
 import org.openrewrite.ExecutionContext;
@@ -37,15 +38,11 @@ public class MigrateJobParameter extends Recipe {
 
     private static final String JOBPARAMETER = "org.springframework.batch.core.JobParameter";
 
-    @Override
-    public String getDisplayName() {
-        return "Add class argument to `JobParameters`";
-    }
+    @Getter
+    final String displayName = "Add class argument to `JobParameters`";
 
-    @Override
-    public String getDescription() {
-        return "Migration Job Parameter, parameterized type is essential in Spring Batch 5.";
-    }
+    @Getter
+    final String description = "Migration Job Parameter, parameterized type is essential in Spring Batch 5.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -89,16 +86,16 @@ public class MigrateJobParameter extends Recipe {
                     public J.VariableDeclarations visitVariableDeclarations(J.VariableDeclarations multiVariable, ExecutionContext ctx) {
                         multiVariable = super.visitVariableDeclarations(multiVariable, ctx);
                         if (defineMapTypeWithJobParameter(multiVariable.getType())) {
-                            multiVariable = new JNewClassOfMap().visitVariableDeclarations(multiVariable, ctx);
+                            multiVariable = (J.VariableDeclarations) new JNewClassOfMap().visit(multiVariable, ctx, getCursor().getParentTreeCursor());
                             maybeAddImport("java.util.Map");
                             return multiVariable.withTypeExpression(TypeTree.build("Map<String, JobParameter<?>>")
-                                    .withPrefix(multiVariable.getTypeExpression().getPrefix()))
+                                            .withPrefix(multiVariable.getTypeExpression().getPrefix()))
                                     .withType(JavaType.buildType("java.util.Map"));
                         }
                         if (defineMapEntryTypeWithJobParameter(multiVariable.getType())) {
                             maybeAddImport("java.util.Map");
                             return multiVariable.withTypeExpression(TypeTree.build("Map.Entry<String, JobParameter<?>>")
-                                    .withPrefix(multiVariable.getTypeExpression().getPrefix()))
+                                            .withPrefix(multiVariable.getTypeExpression().getPrefix()))
                                     .withType(JavaType.buildType("java.util.Map.Entry"));
                         }
                         return multiVariable;
@@ -108,7 +105,7 @@ public class MigrateJobParameter extends Recipe {
                     @Override
                     public J.Assignment visitAssignment(J.Assignment assignment, ExecutionContext ctx) {
                         J.Assignment ass = super.visitAssignment(assignment, ctx);
-                        return new JNewClassOfMap().visitAssignment(ass, ctx);
+                        return (J.Assignment) new JNewClassOfMap().visit(ass, ctx, getCursor().getParentTreeCursor());
                     }
 
                     @Override
@@ -147,7 +144,7 @@ public class MigrateJobParameter extends Recipe {
                         if (nc.getClazz() != null &&
                                 nc.getClazz().getType() != null &&
                                 nc.getClazz().getType().isAssignableFrom(Pattern.compile("org.springframework.batch.core.JobParameter"))) {
-                            if(newClass.getArguments().stream().filter(expression -> expression.getType()!=null).anyMatch(expression -> expression.getType().isAssignableFrom(Pattern.compile("java.lang.Class")))) {
+                            if (newClass.getArguments().stream().filter(expression -> expression.getType() != null).anyMatch(expression -> expression.getType().isAssignableFrom(Pattern.compile("java.lang.Class")))) {
                                 return newClass;
                             }
                             JavaType javaType = nc.getArguments().get(0).getType();

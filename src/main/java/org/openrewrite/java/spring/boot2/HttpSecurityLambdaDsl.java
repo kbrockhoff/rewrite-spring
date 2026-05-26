@@ -15,6 +15,7 @@
  */
 package org.openrewrite.java.spring.boot2;
 
+import lombok.Getter;
 import org.openrewrite.ExecutionContext;
 import org.openrewrite.Preconditions;
 import org.openrewrite.Recipe;
@@ -31,18 +32,14 @@ public final class HttpSecurityLambdaDsl extends Recipe {
     private static final Collection<String> APPLICABLE_METHOD_NAMES = Arrays.asList(
             "anonymous", "authorizeHttpRequests", "authorizeRequests", "cors", "csrf", "exceptionHandling", "formLogin",
             "headers", "httpBasic", "jee", "logout", "oauth2Client", "oauth2Login", "oauth2ResourceServer",
-            "openidLogin", "portMapper", "rememberMe", "requestCache", "requestMatchers", "requiresChannel",
+            "openidLogin", "portMapper", "rememberMe", "requestCache", "requiresChannel",
             "saml2Login", "securityContext", "servletApi", "sessionManagement", "x509");
 
-    @Override
-    public String getDisplayName() {
-        return "Convert `HttpSecurity` chained calls into Lambda DSL";
-    }
+    @Getter
+    final String displayName = "Convert `HttpSecurity` chained calls into Lambda DSL";
 
-    @Override
-    public String getDescription() {
-        return "Converts `HttpSecurity` chained call from Spring Security pre 5.2.x into new lambda DSL style calls and removes `and()` methods.";
-    }
+    @Getter
+    final String description = "Converts `HttpSecurity` chained call from Spring Security pre 5.2.x into new lambda DSL style calls and removes `and()` methods.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {

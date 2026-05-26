@@ -26,6 +26,8 @@ description: >-
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.boot2.UpgradeSpringBoot_2_7
   - org.openrewrite.java.spring.boot3.RemoveEnableBatchProcessing
@@ -47,6 +49,10 @@ recipeList:
       groupId: org.springframework
       artifactId: "*"
       newVersion: 6.0.x
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.springframework.ws
+      artifactId: "*"
+      newVersion: 4.x
   - org.openrewrite.maven.UpgradePluginVersion:
       groupId: org.springframework.boot
       artifactId: spring-boot-maven-plugin
@@ -64,7 +70,7 @@ recipeList:
   - org.openrewrite.gradle.UpdateGradleWrapper:
       version: ^7.4
       addIfMissing: false
-  - org.openrewrite.java.migrate.jakarta.JakartaEE10
+  - org.openrewrite.java.spring.framework.UpgradeSpringFramework_6_0
   - org.openrewrite.java.spring.boot3.RemoveConstructorBindingAnnotation
   - org.openrewrite.java.spring.boot2.MoveAutoConfigurationToImportsFile
   - org.openrewrite.java.spring.boot3.ActuatorEndpointSanitization
@@ -74,11 +80,11 @@ recipeList:
   - org.openrewrite.java.spring.boot3.SpringBootProperties_3_0
   - org.openrewrite.java.spring.boot3.MigrateThymeleafDependencies
   - org.openrewrite.java.spring.boot3.MigrateDropWizardDependencies
+  - org.openrewrite.java.spring.boot3.RenameLogbackToLogbackSpring
   - org.openrewrite.java.spring.boot3.RemoveSolrAutoConfigurationExclude
   - org.openrewrite.java.spring.boot3.MigrateWebMvcTagsToObservationConvention
   - org.openrewrite.java.spring.framework.BeanMethodReturnNull
   - org.openrewrite.java.spring.batch.SpringBatch4To5Migration
-  - org.openrewrite.java.spring.framework.UpgradeSpringFramework_6_0
   - org.openrewrite.java.spring.kafka.UpgradeSpringKafka_3_0
   - org.openrewrite.java.spring.security6.UpgradeSpringSecurity_6_0
   - org.openrewrite.java.spring.cloud2022.UpgradeSpringCloud_2022
@@ -91,10 +97,12 @@ recipeList:
 type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot3.ActuatorEndpointSanitization
 displayName: Remove the deprecated properties `additional-keys-to-sanitize` from the `configprops` and `env` end points
-description: Spring Boot 3.0 removed the key-based sanitization mechanism used in Spring Boot 2.x in favor of a unified approach. See https://github.com/openrewrite/rewrite-spring/issues/228
+description: Spring Boot 3.0 removed the key-based sanitization mechanism used in Spring Boot 2.x in favor of a unified approach. See https://github.com/openrewrite/rewrite-spring/issues/228.
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.DeleteSpringProperty:
       propertyKey: management.endpoint.configprops.additional-keys-to-sanitize
@@ -114,6 +122,8 @@ description: >-
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.ChangeSpringPropertyKey:
       oldPropertyKey: server.max-http-header-size
@@ -128,6 +138,8 @@ tags:
   - spring
   - boot
   - thymeleaf
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangePackage:
       oldPackageName: org.thymeleaf.spring5
@@ -151,6 +163,8 @@ tags:
   - spring
   - boot
   - dropwizard
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.ChangePackage:
       oldPackageName: com.codahale.metrics.servlet
@@ -180,6 +194,8 @@ tags:
   - sap
   - cloudfoundry
   - logging
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.dependencies.ChangeDependency:
       oldGroupId: com.sap.hcp.cf.logging
@@ -192,6 +208,8 @@ type: specs.openrewrite.org/v1beta/recipe
 name: org.openrewrite.java.spring.boot3.UpgradeMyBatisToSpringBoot_3_0
 displayName: Upgrade MyBatis to Spring Boot 3.0
 description: Upgrade MyBatis Spring modules to a version corresponding to Spring Boot 3.0.
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.boot3.UpgradeMyBatisToSpringBoot_2_7
   - org.openrewrite.java.dependencies.UpgradeDependencyVersion:

@@ -24,9 +24,156 @@ description: >-
 tags:
   - spring
   - boot
+preconditions:
+  - org.openrewrite.Singleton
 recipeList:
   - org.openrewrite.java.spring.boot3.UpgradeSpringBoot_3_5
+  - org.openrewrite.java.spring.cloud2025.UpgradeSpringCloud_2025_1
   - org.openrewrite.java.spring.framework.UpgradeSpringFramework_7_0
+  - org.openrewrite.java.spring.security7.UpgradeSpringSecurity_7_0
+  - org.openrewrite.java.spring.batch.SpringBatch5To6Migration
   - org.openrewrite.java.spring.boot4.SpringBootProperties_4_0
   - org.openrewrite.java.spring.boot4.ReplaceMockBeanAndSpyBean
+  - org.openrewrite.hibernate.MigrateToHibernate71
   - org.openrewrite.java.testing.testcontainers.Testcontainers2Migration
+  - org.openrewrite.java.springdoc.UpgradeSpringDoc_3_0
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.springframework.boot
+      artifactId: "*"
+      newVersion: 4.0.x
+      overrideManagedVersion: false
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-dependencies
+      newVersion: 4.0.x
+      overrideManagedVersion: true
+  - org.openrewrite.maven.UpgradePluginVersion:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-maven-plugin
+      newVersion: 4.0.x
+  - org.openrewrite.maven.UpgradeParentVersion:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-starter-parent
+      newVersion: 4.0.x
+  - org.openrewrite.gradle.plugins.UpgradePluginVersion:
+      pluginIdPattern: org.springframework.boot
+      newVersion: 4.0.x
+  - org.openrewrite.gradle.UpdateGradleWrapper:
+      version: ^8.14
+      addIfMissing: false
+  # Spring Boot 4 requires Kotlin 2.2.x (Spring Boot 4.0.5 manages 2.2.21).
+  # Bump Kotlin plugin declarations in Gradle and any explicit kotlin-maven-plugin
+  # version in Maven. Plugin recipes update version literals AND properties referenced
+  # by `<version>${...}</version>`.
+  - org.openrewrite.gradle.plugins.UpgradePluginVersion:
+      pluginIdPattern: org.jetbrains.kotlin.*
+      newVersion: 2.2.x
+  - org.openrewrite.maven.UpgradePluginVersion:
+      groupId: org.jetbrains.kotlin
+      artifactId: kotlin-maven-plugin
+      newVersion: 2.2.x
+  # Catch explicit kotlin dependency versions (Gradle, or Maven projects without
+  # a Spring Boot parent BOM managing them).
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: org.jetbrains.kotlin
+      artifactId: "*"
+      newVersion: 2.2.x
+      overrideManagedVersion: true
+
+  # Modular starters must run after parent/BOM upgrades so that
+  # AddDependency can see the new artifacts are managed and omit explicit versions
+  - org.openrewrite.java.spring.boot4.MigrateToModularStarters
+
+  # Replace deprecated starters with their new names
+  # https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide#deprecated-starters
+  # Rename without pinning version when dependency-management plugin manages versions via BOM
+  - org.openrewrite.java.spring.boot4.RenameDeprecatedStartersManagedVersions
+  # Fallback: rename with explicit version for modules without the plugin
+  # (no-op where the managed-version variant already renamed the artifact)
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-oauth2-authorization-server
+      newArtifactId: spring-boot-starter-security-oauth2-authorization-server
+      newVersion: 4.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-oauth2-client
+      newArtifactId: spring-boot-starter-security-oauth2-client
+      newVersion: 4.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-oauth2-resource-server
+      newArtifactId: spring-boot-starter-security-oauth2-resource-server
+      newVersion: 4.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-web
+      newArtifactId: spring-boot-starter-webmvc
+      newVersion: 4.0.x
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-web-services
+      newArtifactId: spring-boot-starter-webservices
+      newVersion: 4.0.x
+  # https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide#aop-starter-pom
+  - org.openrewrite.java.dependencies.RemoveDependency:
+      groupId: org.springframework.boot
+      artifactId: spring-boot-starter-aop
+      unlessUsing: org.aspectj.lang.annotation.*
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-aop
+      newArtifactId: spring-boot-starter-aspectj
+      newVersion: 4.0.x
+
+  # Additional dependencies that need to move in sync
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: eu.michael-simons.neo4j
+      artifactId: neo4j-migrations-spring-boot-starter
+      newVersion: 3.0.x
+      overrideManagedVersion: true
+  - org.openrewrite.java.dependencies.UpgradeDependencyVersion:
+      groupId: io.github.wimdeblauwe
+      artifactId: error-handling-spring-boot-starter
+      newVersion: 5.0.x
+      overrideManagedVersion: true
+
+  - org.openrewrite.java.spring.boot4.AddAutoConfigureTestRestTemplate
+  - org.openrewrite.java.spring.boot4.AddAutoConfigureWebTestClient
+
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.openrewrite.java.spring.boot4.RenameDeprecatedStartersManagedVersions
+displayName: Rename Spring Boot 4.0 starters with managed versions
+description: >-
+  Renames deprecated Spring Boot starters to their new names without adding explicit versions,
+  for use in projects where the `io.spring.dependency-management` plugin manages versions via BOM.
+preconditions:
+  - org.openrewrite.gradle.search.ModuleHasPlugin:
+      pluginId: io.spring.dependency-management
+  - org.openrewrite.Singleton
+recipeList:
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-oauth2-authorization-server
+      newArtifactId: spring-boot-starter-security-oauth2-authorization-server
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-oauth2-client
+      newArtifactId: spring-boot-starter-security-oauth2-client
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-oauth2-resource-server
+      newArtifactId: spring-boot-starter-security-oauth2-resource-server
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-web
+      newArtifactId: spring-boot-starter-webmvc
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-web-services
+      newArtifactId: spring-boot-starter-webservices
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.springframework.boot
+      oldArtifactId: spring-boot-starter-aop
+      newArtifactId: spring-boot-starter-aspectj

@@ -32,23 +32,17 @@ import org.openrewrite.yaml.tree.Yaml;
 public class DeleteSpringProperty extends Recipe {
 
     @Option(displayName = "Property key",
-        description = "The property key to delete. Supports glob expressions",
-        example = "management.endpoint.configprops.*")
+            description = "The property key to delete. Supports glob expressions",
+            example = "management.endpoint.configprops.*")
     String propertyKey;
 
-    @Override
-    public String getDisplayName() {
-        return "Delete a spring configuration property";
-    }
+    String displayName = "Delete a spring configuration property";
 
-    @Override
-    public String getDescription() {
-        return "Delete a spring configuration property from any configuration file that contains a matching key.";
-    }
+    String description = "Delete a spring configuration property from any configuration file that contains a matching key.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
-        return new TreeVisitor<Tree, ExecutionContext>() {
+        return Preconditions.check(new IsPossibleSpringConfigFile(), new TreeVisitor<Tree, ExecutionContext>() {
             @Override
             public boolean isAcceptable(SourceFile sourceFile, ExecutionContext ctx) {
                 return sourceFile instanceof Yaml.Documents || sourceFile instanceof Properties.File;
@@ -58,13 +52,13 @@ public class DeleteSpringProperty extends Recipe {
             public @Nullable Tree visit(@Nullable Tree t, ExecutionContext ctx) {
                 if (t instanceof Yaml.Documents) {
                     t = new org.openrewrite.yaml.DeleteProperty(propertyKey, false, true, null)
-                        .getVisitor().visitNonNull(t, ctx);
+                            .getVisitor().visitNonNull(t, ctx);
                 } else if (t instanceof Properties.File) {
                     t = new DeleteProperty(propertyKey, true)
-                        .getVisitor().visitNonNull(t, ctx);
+                            .getVisitor().visitNonNull(t, ctx);
                 }
                 return t;
             }
-        };
+        });
     }
 }

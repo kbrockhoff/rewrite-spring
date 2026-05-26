@@ -68,15 +68,9 @@ public class ChangeMethodParameter extends Recipe {
         return String.format("`%s` in methods `%s`", parameterType, methodPattern);
     }
 
-    @Override
-    public String getDisplayName() {
-        return "Change parameter type for a method declaration";
-    }
+    String displayName = "Change parameter type for a method declaration";
 
-    @Override
-    public String getDescription() {
-        return "Change parameter type for a method declaration, identified by a method pattern.";
-    }
+    String description = "Change parameter type for a method declaration, identified by a method pattern.";
 
     @Override
     public TreeVisitor<?, ExecutionContext> getVisitor() {
@@ -94,8 +88,8 @@ public class ChangeMethodParameter extends Recipe {
 
             if (methodMatcher.matches(md.getMethodType())) {
                 if (md.getParameters().isEmpty() ||
-                    md.getParameters().get(0) instanceof J.Empty ||
-                    md.getParameters().size() <= parameterIndex) {
+                        md.getParameters().get(0) instanceof J.Empty ||
+                        md.getParameters().size() <= parameterIndex) {
                     return md;
                 }
                 if (md.getParameters().get(parameterIndex) instanceof J.VariableDeclarations) {
@@ -104,6 +98,10 @@ public class ChangeMethodParameter extends Recipe {
                     TypeTree typeTree = createTypeTree(parameterType);
                     if (TypeUtils.isOfType(parameter.getType(), typeTree.getType())) {
                         return md;
+                    }
+
+                    if (parameter.getTypeAsFullyQualified() != null) {
+                        maybeRemoveImport(parameter.getTypeAsFullyQualified());
                     }
 
                     String parameterName = parameter.getVariables().get(0).getSimpleName();
